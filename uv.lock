@@ -1813,7 +1813,7 @@ train = [
     { name = "matplotlib", specifier = ">=3.11" },
     { name = "mlflow-skinny", specifier = ">=3" },
     { name = "onnx", specifier = ">=1.19.1" },
-    { name = "pandas", specifier = ">=2.2" },
+    { name = "pandas", specifier = ">=2.2,<3" },
     { name = "scikit-learn", specifier = ">=1.9" },
     { name = "sqlalchemy", specifier = ">=2" },
     { name = "torch", marker = "(platform_machine != 'x86_64' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'linux')", specifier = ">=2.4" },

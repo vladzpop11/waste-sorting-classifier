@@ -9,3 +9,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Capped in pyproject.toml: pandas 3 needs NumPy 2, ruled out by the Intel-Mac PyTorch pin.
+      - dependency-name: pandas
+        update-types: ["version-update:semver-major"]

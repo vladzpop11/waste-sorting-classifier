@@ -38,7 +38,9 @@ train = [
     "onnx>=1.19.1",  # 1.19.0 omits its ml_dtypes>=0.5 requirement and breaks with ml_dtypes 0.4
     "scikit-learn>=1.9",
     "matplotlib>=3.11",
-    "pandas>=2.2",
+    # pandas 3 needs NumPy 2, which the Intel-Mac PyTorch 2.2.2 pin rules out; keeping every
+    # platform on 2.x keeps the split and analyses reproducible across machines.
+    "pandas>=2.2,<3",
     "mlflow-skinny>=3",
     "sqlalchemy>=2",
     "alembic>=1.13",
