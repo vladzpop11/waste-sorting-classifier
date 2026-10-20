@@ -248,6 +248,12 @@ def orientation_cases(photo: Image.Image) -> dict[str, bytes]:
     )
     cases["xmp-text.png"] = _png_insert(png, _chunk(b"tEXt", b"XML:com.adobe.xmp\0" + _xmp(5)))
     cases["xmp.webp"] = _encode(photo, "WEBP", lossless=True, xmp=_xmp(7))
+    cases["xmp-itxt-bad-utf8.png"] = _png_insert(
+        png, _chunk(b"iTXt", b"XML:com.adobe.xmp\0\0\0\0\0" + _xmp(6) + b"\xff")
+    )
+    cases["xmp-itxt-compressed.png"] = _png_insert(
+        png, _chunk(b"iTXt", b"XML:com.adobe.xmp\0\1\0\0\0" + zlib.compress(_xmp(3)))
+    )
     cases["exif-prefixed.png"] = _png_insert(png, _chunk(b"eXIf", b"Exif\0\0" + six))
     cases["exif-two-chunks.png"] = _png_insert(
         png, _chunk(b"eXIf", six) + _chunk(b"eXIf", _tiff([(0x0112, 3, 1, _short(3))]))
@@ -298,6 +304,28 @@ def damaged_cases(photo: Image.Image) -> dict[str, bytes]:
     ihdr = png[8:33]
     hostile = struct.pack(">I", 0xFFFFFFF0) + b"eXIf" + _tiff([(0x0112, 3, 1, _short(6))])
     cases["hostile-exif-size.png"] = b"\x89PNG\r\n\x1a\n" + ihdr + hostile
+    # PNG metadata limits (Pillow: 1 MiB per compressed chunk, 64 MiB of text in total).
+    mib = 1024 * 1024
+    bomb = zlib.compress(b"\0" * 64 * mib, 9)
+    before_iend = lambda extra: png[:-12] + extra + png[-12:]  # noqa: E731
+    cases["ztxt-bomb.png"] = _png_insert(png, _chunk(b"zTXt", b"Comment\0\0" + bomb))
+    cases["ztxt-bomb-after-idat.png"] = before_iend(_chunk(b"zTXt", b"Comment\0\0" + bomb))
+    cases["itxt-bomb.png"] = _png_insert(png, _chunk(b"iTXt", b"Comment\0\1\0\0\0" + bomb))
+    cases["iccp-bomb.png"] = _png_insert(png, _chunk(b"iCCP", b"icc\0\0" + bomb))
+    cases["ztxt-1mib.png"] = _png_insert(
+        png, _chunk(b"zTXt", b"Comment\0\0" + zlib.compress(b"a" * mib))
+    )
+    cases["ztxt-65-mib.png"] = _png_insert(
+        png,
+        b"".join(_chunk(b"zTXt", b"C%d\0\0" % i + zlib.compress(b"a" * mib)) for i in range(65)),
+    )
+    cases["ztxt-bad-method.png"] = _png_insert(
+        png, _chunk(b"zTXt", b"Comment\0\1" + zlib.compress(b"x"))
+    )
+    cases["ztxt-corrupt.png"] = _png_insert(png, _chunk(b"zTXt", b"Comment\0\0garbage"))
+    cases["iccp-bad-method.png"] = _png_insert(
+        png, _chunk(b"iCCP", b"icc\0\1" + zlib.compress(b"x"))
+    )
     cases["too-elongated.png"] = _encode(Image.new("RGB", (2600, 200), "white"), "PNG")
     cases["too-large.png"] = _encode(Image.new("L", (6000, 4500)), "PNG")
     cases["gif.gif"] = _encode(photo, "GIF")

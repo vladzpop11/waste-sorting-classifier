@@ -100,9 +100,36 @@ const concat = (parts) => {
   return out;
 };
 
-async function inflate(data) {
-  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+// Pillow's limits on PNG metadata (PngImagePlugin): each compressed chunk may expand to at
+// most 1 MiB (MAX_TEXT_CHUNK) and all text together to 64 MiB (MAX_TEXT_MEMORY); beyond
+// that the file is refused. Corrupt compressed data is ignored, as Pillow ignores it.
+const MAX_TEXT_CHUNK = 1024 * 1024;
+const MAX_TEXT_MEMORY = 64 * MAX_TEXT_CHUNK;
+const tooMuch = () => new ImageError("That file carries too much metadata to be read safely.");
+
+// -> Uint8Array, or null when the data is corrupt; throws when it expands past the limit.
+async function inflateLimited(data) {
+  const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
+  const parts = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.length;
+      if (total > MAX_TEXT_CHUNK) {
+        reader.cancel().catch(() => {});
+        throw tooMuch();
+      }
+      parts.push(value);
+    }
+  } catch (err) {
+    if (err instanceof ImageError) throw err;
+    // Pillow's zlib keeps what it decoded before the damage; a partial result never matters
+    // here (keys are compared whole), so damaged data counts as empty.
+    return null;
+  }
+  return concat(parts);
 }
 
 // --- Containers ------------------------------------------------------------------------
@@ -155,48 +182,88 @@ export function* pngChunks(b) {
   }
 }
 
+// Characters in a decoded string, counted like Python's len() (code points).
+const codePoints = (bytes, utf8) => (utf8 ? bytes.reduce((n, x) => n + ((x & 0xc0) !== 0x80), 0) : bytes.length);
+
+// A PNG text chunk as Pillow reads it -> { key, text, xmpBytes, length } or null (ignored).
 async function pngText(chunk) {
   const d = chunk.data;
   const nul = d.indexOf(0);
-  if (nul < 0) return null;
-  const key = latin1(d.subarray(0, nul));
-  if (chunk.type === "tEXt") return { key, text: latin1(d.subarray(nul + 1)) };
-  if (chunk.type === "zTXt") return { key, text: latin1(await inflate(d.subarray(nul + 2))) };
+  if (chunk.type === "tEXt") {
+    const key = latin1(nul < 0 ? d : d.subarray(0, nul));
+    const value = nul < 0 ? new Uint8Array() : d.subarray(nul + 1);
+    return key ? { key, text: latin1(value), length: value.length } : null;
+  }
+  if (chunk.type === "zTXt") {
+    const key = latin1(nul < 0 ? d : d.subarray(0, nul));
+    const rest = nul < 0 ? new Uint8Array() : d.subarray(nul + 1);
+    if (rest.length && rest[0] !== 0) throw new ImageError("That file could not be read as an image.");
+    const value = (await inflateLimited(rest.subarray(1))) ?? new Uint8Array();
+    return key ? { key, text: latin1(value), length: value.length } : null;
+  }
   // iTXt: keyword, compression flag, method, language tag, translated keyword, text.
-  const compressed = d[nul + 1] === 1;
+  if (nul < 0 || d.length - nul - 1 < 2) return null;
+  const flag = d[nul + 1], method = d[nul + 2];
   const lang = d.indexOf(0, nul + 3);
   const translated = lang < 0 ? -1 : d.indexOf(0, lang + 1);
   if (translated < 0) return null;
-  const body = d.subarray(translated + 1);
-  return { key, text: new TextDecoder().decode(compressed ? await inflate(body) : body) };
+  let value = d.subarray(translated + 1);
+  if (flag !== 0) {
+    if (method !== 0) return null;
+    value = await inflateLimited(value);
+    if (value === null) return null;
+  }
+  const key = latin1(d.subarray(0, nul));
+  const xmpBytes = key === "XML:com.adobe.xmp" ? latin1(value) : null; // kept even if not UTF-8
+  let text;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(d.subarray(lang + 1, translated));
+    new TextDecoder("utf-8", { fatal: true }).decode(d.subarray(nul + 3, lang));
+    text = new TextDecoder("utf-8", { fatal: true }).decode(value);
+  } catch {
+    return { key: null, xmpBytes };
+  }
+  return { key, text, xmpBytes, length: codePoints(value, true) };
+}
+
+// An iCCP colour profile is not used, but Pillow refuses one it cannot safely decompress.
+async function checkIccp(chunk) {
+  const d = chunk.data;
+  const nul = d.indexOf(0);
+  if (nul < 0 || d[nul + 1] !== 0) throw new ImageError("That file could not be read as an image.");
+  await inflateLimited(d.subarray(nul + 2));
 }
 
 async function pngHeader(b) {
-  let exif = null, rawProfile = null, xmpText = "", xmpItxt = "", ihdr = false;
+  let exif = null, ihdr = false, memory = 0, xmpRaw = null;
+  const info = {}; // Pillow's im_info for the keys that matter: the last chunk wins
   for (const c of pngChunks(b)) {
     if (c.type === "IHDR" && c.data.length >= 8) ihdr = true;
     if (c.type === "eXIf") exif = c.data; // Pillow keeps the last
+    if (c.type === "iCCP") await checkIccp(c);
     if (c.type === "tEXt" || c.type === "zTXt" || c.type === "iTXt") {
-      let t = null;
-      try { t = await pngText(c); } catch { t = null; } // Pillow skips broken text chunks
-      if (t && t.key === "Raw profile type exif") rawProfile = t.text;
-      // Pillow looks at XMP from tEXt/zTXt first, then from iTXt.
-      if (t && t.key === "XML:com.adobe.xmp") {
-        if (c.type === "iTXt") xmpItxt = t.text;
-        else xmpText = t.text;
-      }
+      const t = await pngText(c);
+      if (!t) continue;
+      if (t.xmpBytes !== null && t.xmpBytes !== undefined) xmpRaw = t.xmpBytes;
+      if (t.key === null) continue;
+      info[t.key] = t.text;
+      memory += t.length;
+      if (memory > MAX_TEXT_MEMORY) throw tooMuch();
     }
   }
-  if (!exif && rawProfile !== null) {
+  const rawProfile = info["Raw profile type exif"];
+  if (!exif && rawProfile !== undefined) {
     const hex = rawProfile.split("\n").slice(3).join("").replace(/\s+/g, "");
     if (!/^([0-9a-fA-F]{2})*$/.test(hex)) throw new ImageError("That file could not be read as an image.");
     exif = Uint8Array.from(hex.match(/../g) || [], (h) => parseInt(h, 16));
   }
+  // Pillow: XMP stored under its own key (any text chunk) first, then raw iTXt XMP.
+  const xmp = info["XML:com.adobe.xmp"] || xmpRaw || null;
   return {
     width: ihdr ? u32(b, 16, false) : 0,
     height: ihdr ? u32(b, 20, false) : 0,
     complete: true, // whether all pixel data is there is judged by png.js, like Pillow
-    orientation: orientationOf(exif && exif.length ? exif : null, xmpText || xmpItxt || null),
+    orientation: orientationOf(exif && exif.length ? exif : null, xmp),
   };
 }
 
