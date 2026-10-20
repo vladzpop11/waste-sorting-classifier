@@ -17,6 +17,8 @@ Classify a photo of a waste item into six recycling categories: cardboard, glass
 - **The test score is trustworthy for its setting:** photos of the same object are kept together when splitting, so the test set measures new objects, not familiar ones. See [Data](#data).
 - **The setting is narrow:** one object on a plain background. Busy real-world scenes were never tested.
 
+**Try it:** [huggingface.co/spaces/VladZpp/waste-sorting-classifier](https://huggingface.co/spaces/VladZpp/waste-sorting-classifier). The model runs in your browser, so photos never leave your device.
+
 ## How to run
 
 Requires Python 3.12 via [uv](https://docs.astral.sh/uv/), `make` and Docker. `make help` lists every target.
@@ -32,7 +34,7 @@ make docker-stop
 - **`POST /predict`** takes a JPEG, PNG or WebP upload (field `file`, up to 5 MB). It returns the label and all six probabilities.
 - **Interactive docs:** `GET /docs`.
 - **Refused inputs:** other formats, oversized or decompression-bomb images, and non-multipart requests all get an error with the same shape, `{"detail": [{"type", "loc", "msg"}]}`.
-- **Other targets:** `make check` (Ruff and pytest), `make baseline`, `make smoke-train` (one CPU epoch), `make export`, `make errors`, `make latency`, `make serve` (the API without Docker).
+- **Other targets:** `make check` (Ruff and pytest), `make baseline`, `make smoke-train` (one CPU epoch), `make export`, `make errors`, `make latency`, `make serve` (the API without Docker), `make demo-local` (the Gradio demo), `make check-web` (the browser pipeline against Python; needs Node.js and Chrome).
 
 ## Data
 
@@ -50,7 +52,7 @@ Two problems were found before any modelling:
 
 ## Approach
 
-1. **Preprocessing written once.** [preprocess.py](src/waste_sorting_classifier/preprocess.py) reproduces torchvision's evaluation transform without PyTorch (tested to 1e-6), and applies EXIF orientation. Validation, export, the API and the demo all use it, so training and serving cannot drift apart.
+1. **Preprocessing written once.** [preprocess.py](src/waste_sorting_classifier/preprocess.py) reproduces torchvision's evaluation transform without PyTorch (tested to 1e-6), and applies EXIF orientation. Validation, export, the API and the local Gradio demo all use it, so training and serving cannot drift apart.
 2. **Training on a Kaggle T4 GPU** ([kaggle/train.ipynb](kaggle/train.ipynb)): the notebook clones this repository and runs the unchanged training module.
    - **Recipe:** ImageNet-pretrained backbone with a new head; augmentation (random crops, flips, colour jitter) for training only; AdamW with a cosine schedule and label smoothing; early stopping on validation loss.
    - **Tracking:** every epoch is logged to MLflow, using a SQLite store inside the run directory.
@@ -59,6 +61,10 @@ Two problems were found before any modelling:
    - **Equivalence:** on 20 validation photos the predictions are identical, with a maximum logit difference of 5.8e-6.
    - **Cross-check:** the ONNX model reproduces the GPU model's validation accuracy exactly (95.56%).
 5. **One test evaluation,** of the exported ONNX file the API serves. Its SHA-256 is recorded, and `make evaluate` refuses to run a second time.
+6. **A browser demo with the same numbers.** The public demo is a static page ([web/](web/)) that runs the same ONNX file with ONNX Runtime Web, and checks its SHA-256 in the browser first.
+   - **Why static:** Hugging Face now charges for Gradio Spaces, and static Spaces are free.
+   - **Preprocessing in JavaScript:** [preprocess.js](web/preprocess.js) reimplements the Python preprocessing, including Pillow's fixed-point bilinear resize and Python's round-half-to-even centre crop.
+   - **Proof:** `make check-web` compares the two on all 360 validation photos. The input tensors are bit-identical, and predictions match in Node. The real page in headless Chrome, which also does its own JPEG decoding, gives the same prediction for every photo, with probabilities within 2e-6.
 
 ## Results
 

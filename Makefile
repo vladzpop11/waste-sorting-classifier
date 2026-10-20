@@ -3,7 +3,7 @@ NAME  ?= waste-sorting-classifier
 PORT  ?= 8000
 
 .PHONY: help setup format lint test check data split baseline smoke-train train export \
-        evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors
+        evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors demo-local check-web
 
 help:  ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -77,3 +77,18 @@ latency:  ## Measure /predict latency against the running API (writes reports/la
 
 errors:  ## Validation error gallery of the exported model (reports/figures/val_errors.png)
 	uv run python -m waste_sorting_classifier.errors
+
+demo-local:  ## The Gradio demo on localhost (needs make fetch-model)
+	uv run --group demo python demo/gradio_app.py
+
+WEB_TEST := .cache/web-test
+
+check-web:  ## Browser pipeline vs Python on all validation photos (needs Node.js; Chrome for the page test)
+	uv run python -m waste_sorting_classifier.web_fixtures $(WEB_TEST)/fixtures
+	npm install --silent --no-audit --no-fund --prefix $(WEB_TEST) onnxruntime-web@1.30.0 puppeteer-core@24
+	node web/check_preprocess.mjs $(WEB_TEST)/fixtures models/model.onnx $(WEB_TEST)/node_modules/onnxruntime-web
+	rm -rf $(WEB_TEST)/site && mkdir -p $(WEB_TEST)/site $(WEB_TEST)/shots
+	cp -R web/index.html web/app.js web/preprocess.js web/model.json web/examples models/model.onnx $(WEB_TEST)/site/
+	cd $(WEB_TEST)/site && (python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 & echo $$! > ../server.pid)
+	sleep 1; NODE_PATH=$(WEB_TEST)/node_modules node web/check_page.cjs http://127.0.0.1:8765/ \
+	  $(WEB_TEST)/fixtures data/raw/images $(WEB_TEST)/shots; status=$$?; kill $$(cat $(WEB_TEST)/server.pid); exit $$status

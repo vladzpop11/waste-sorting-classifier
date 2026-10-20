@@ -1,9 +1,8 @@
-"""Gradio demo: classify a photo of a waste item into six recycling categories.
+"""Local Gradio demo: classify a photo of a waste item into six recycling categories.
 
-The model (model.onnx) ships with this Space and is checked against the SHA-256 in
-model.json at startup. The preprocessing and inference code come from the project's
-GitHub repository at a pinned commit (see requirements.txt), so the demo runs exactly what
-was evaluated.
+Run with `make demo-local` (after `make fetch-model`). It uses the same model files and
+preprocessing as the API; the public demo is the static page in web/, because hosting a
+Gradio Space on Hugging Face now needs a paid plan.
 """
 
 from pathlib import Path
@@ -14,9 +13,9 @@ import numpy as np
 from waste_sorting_classifier.onnx_model import OnnxClassifier
 from waste_sorting_classifier.preprocess import load_rgb, preprocess
 
-HERE = Path(__file__).parent
-MODEL = OnnxClassifier(HERE, threads=2)
-EXAMPLES = sorted(str(p) for p in (HERE / "examples").glob("*.jpg"))
+ROOT = Path(__file__).resolve().parents[1]
+MODEL = OnnxClassifier(ROOT / "models", threads=2)
+EXAMPLES = sorted(str(p) for p in (ROOT / "web" / "examples").glob("*.jpg"))
 
 
 def classify(path: str | None) -> dict[str, float]:

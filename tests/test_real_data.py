@@ -18,11 +18,11 @@ def test_committed_split_matches_the_images_and_keeps_groups_together() -> None:
     assert split["split"].value_counts().to_dict() == {"train": 1800, "val": 360, "test": 361}
 
 
-def test_space_records_the_evaluated_model() -> None:
+def test_web_demo_records_the_evaluated_model() -> None:
     import json
 
     root = project_path("")
-    space = json.loads((root / "space" / "model.json").read_text())
+    web = json.loads((root / "web" / "model.json").read_text())
     evaluated = json.loads((root / "reports" / "test_metrics.json").read_text())
-    assert space["onnx_sha256"] == evaluated["onnx_sha256"]
-    assert json.loads((root / "models" / "model.json").read_text()) == space
+    assert web["onnx_sha256"] == evaluated["onnx_sha256"]
+    assert json.loads((root / "models" / "model.json").read_text()) == web
