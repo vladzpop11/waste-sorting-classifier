@@ -93,12 +93,14 @@ async function openBrowser() {
   for (const c of edges) {
     const got = await upload(path.join(fixtures, "edge", c.name));
     let line, ok;
-    if (c.refused) {
+    if (c.page_differs) {
+      // Documented differences are checked pixel for pixel by check_decode.mjs; here the
+      // page only has to answer the same way (refuse, or show a result).
+      ok = (c.page_differs.page === "refuses") === Boolean(got.error);
+      line = `documented difference (${c.page_differs.reason}) -> page: ${got.error || got.label}`;
+    } else if (c.refused) {
       ok = Boolean(got.error);
       line = `refused (Python: ${c.refused.slice(0, 50)}) -> page: ${got.error || got.label}`;
-    } else if (c.page_refuses) {
-      ok = Boolean(got.error);
-      line = `documented difference (${c.page_refuses}) -> page: ${got.error || got.label}`;
     } else if (got.error) {
       ok = false;
       line = `page refused it: ${got.error}`;

@@ -9,14 +9,27 @@ damaged files contain (impossible chunk sizes, truncation, bad checksums).
 import io
 import struct
 import zlib
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
+# Files the page knowingly handles differently from Python: name -> (what the page does,
+# why). The checks assert exactly this behaviour, so any change is noticed. Valid files:
+# CMYK JPEG and animated WebP. All the others break their format's specification; the page
+# stays safe with them but does not copy every Pillow quirk.
 KNOWN_DIFFERENCES = {
-    # Python accepts these; the page refuses them with a message (documented in the README).
-    "cmyk.jpg": "the WebAssembly JPEG decoder does not convert CMYK",
-    "animated.webp": "the WebAssembly WebP decoder does not read animations",
+    "cmyk.jpg": ("refuses", "the WebAssembly JPEG decoder does not convert CMYK"),
+    "animated.webp": ("refuses", "the WebAssembly WebP decoder does not read animations"),
+    "fuzz-jpeg-no-eoi-padding.jpg": ("refuses", "no end-of-image marker (Pillow accepts it)"),
+    "fuzz-png-bad-chunk-name.png": ("decodes", "invalid chunk name (Pillow refuses it)"),
+    "fuzz-png-compression-byte-1.png": ("refuses", "unknown compression method in IHDR"),
+    "fuzz-png-last-idat-crc-missing.png": ("refuses", "last chunk cut short (Pillow accepts it)"),
+    "fuzz-png-no-plte.png": ("refuses", "palette image without a palette"),
+    "fuzz-png-rgb-short-trns.png": ("decodes", "tRNS chunk too short (Pillow refuses it)"),
+    "fuzz-png-short-gama.png": ("decodes", "gAMA chunk too short (Pillow refuses it)"),
+    "fuzz-png-trns-after-idat.png": ("differs", "tRNS after the image data (Pillow applies it)"),
+    "fuzz-png-zlib-no-adler.png": ("refuses", "image data stream without its checksum"),
 }
 
 
@@ -366,7 +379,13 @@ def format_cases(photo: Image.Image, icc_profile: bytes | None) -> dict[str, byt
     return cases
 
 
+# Files found by differential fuzzing (one per class of difference it found), kept as they
+# are: some cannot be made with Pillow (4:4:0, arithmetic-coded and lossless JPEG).
+FOUND_BY_FUZZING = Path(__file__).resolve().parents[2] / "tests" / "data" / "web-edge"
+
+
 def edge_cases(photo: Image.Image, icc_profile: bytes | None = None) -> dict[str, bytes]:
     """name -> file bytes. The extension is only for humans: the page sniffs the bytes."""
+    found = {f"fuzz-{f.name}": f.read_bytes() for f in sorted(FOUND_BY_FUZZING.iterdir())}
     return {**orientation_cases(photo), **format_cases(photo, icc_profile),
-            **png_matrix(photo), **damaged_cases(photo)}  # fmt: skip
+            **png_matrix(photo), **damaged_cases(photo), **found}  # fmt: skip

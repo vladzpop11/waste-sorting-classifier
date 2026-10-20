@@ -94,7 +94,7 @@ BROWSER ?= chrome
 SMOKE_LABEL := plastic
 
 # What the static Hugging Face Space serves (web/README.md carries its settings).
-WEB_SITE := web/index.html web/app.js web/decode.js web/png.js web/preprocess.js \
+WEB_SITE := web/index.html web/app.js web/decode.js web/png.js web/inflate.js web/preprocess.js \
 	web/image-header.js web/model-info.js web/README.md web/examples web/vendor
 
 web:  ## Prepare web/: pinned ONNX Runtime Web files and model-info.js from models/model.json

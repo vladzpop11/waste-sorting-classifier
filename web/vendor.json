@@ -13,13 +13,13 @@
       }
     },
     {
-      "package": "@jsquash/jpeg (MozJPEG, built on libjpeg-turbo)",
-      "version": "1.6.0",
-      "license": "Apache-2.0 (wrapper); libjpeg-turbo/MozJPEG: IJG and BSD-style",
-      "base_url": "https://cdn.jsdelivr.net/npm/@jsquash/jpeg@1.6.0/codec/dec/",
+      "package": "@cornerstonejs/codec-libjpeg-turbo-8bit (libjpeg-turbo 3.x)",
+      "version": "1.2.8",
+      "license": "ISC (wrapper); libjpeg-turbo: IJG, BSD-3-Clause and zlib licences",
+      "base_url": "https://cdn.jsdelivr.net/npm/@cornerstonejs/codec-libjpeg-turbo-8bit@1.2.8/dist/",
       "files": {
-        "mozjpeg_dec.js": "a6836b2d03d4fdda64b4aef380e6298d7421c070e7e1e4cf13ec129df7aa0b5e",
-        "mozjpeg_dec.wasm": "a7c4b12169817e779ff4af137981393ae924944e167ad1bd95747c9199162d3e"
+        "libjpegturbowasm_decode.js": "e6470ee8af2280a12cd5b1963e1e3d3fa733676bbc79163b0c40122c6b9e1730",
+        "libjpegturbowasm_decode.wasm": "a8d104602540b9e7aeefeaac23af7380f40c5a3460291d40246a26783929a696"
       }
     },
     {
@@ -30,6 +30,18 @@
       "files": {
         "webp_dec.js": "c57971611f4d9ec04e4636ce7bb4a35c031b24cbdb013518f0a017d9f6014370",
         "webp_dec.wasm": "30fb52fa2a80166d25ba7debf902218904ba1f05ccce9f959f722beff9e2f344"
+      }
+    },
+    {
+      "package": "fflate",
+      "version": "0.8.2",
+      "license": "MIT",
+      "base_url": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/",
+      "files": {
+        "fflate.mjs": {
+          "path": "esm/browser.js",
+          "sha256": "8cc1f687e0159e977addb6b85e274dbd11e622cf151f4fcb7b85d49622ea43e7"
+        }
       }
     }
   ]

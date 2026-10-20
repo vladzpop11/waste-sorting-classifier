@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- Hugging Face serves large files (model.onnx, the WebAssembly runtime) from its CDN via a redirect;
      the model is still checked against its SHA-256 in model-info.js before use. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://*.hf.co https://*.huggingface.co; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://*.hf.co https://*.huggingface.co; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'">
 <title>Waste Sorting Classifier</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%99%BB%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <meta name="description" content="Classify a photo of waste into six recycling categories. The model runs in your browser: photos never leave your device.">
@@ -66,7 +66,7 @@
   }
   .drop.over { border-color: var(--accent); }
   button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .drop img { max-width: 100%; max-height: 300px; border-radius: 8px; }
+  .drop canvas { max-width: 100%; max-height: 300px; border-radius: 8px; }
   .drop strong { color: var(--text); }
   button.pick {
     font: inherit; font-weight: 600; background: var(--accent); color: #fff; border: 0;
@@ -112,7 +112,7 @@
     <section class="card">
       <div class="drop" id="drop">
         <span id="drop-hint"><strong>Drop a photo here</strong><br>JPEG, PNG or WebP</span>
-        <img id="preview" alt="Your photo" hidden>
+        <canvas id="preview" role="img" aria-label="Your photo, as the model sees it" hidden></canvas>
         <button class="pick" type="button" id="pick">Choose a photo</button>
         <input id="file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
       </div>
@@ -134,6 +134,7 @@
     <p><a href="https://github.com/vladzpop11/waste-sorting-classifier">Code, data handling and evaluation on GitHub</a></p>
   </footer>
 </main>
+<script src="vendor/libjpegturbowasm_decode.js"></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

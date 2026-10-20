@@ -19,6 +19,6 @@ export const MODEL = {
 };
 export const WASM = {
   "ort-wasm-simd-threaded.wasm": "3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2",
-  "mozjpeg_dec.wasm": "a7c4b12169817e779ff4af137981393ae924944e167ad1bd95747c9199162d3e",
+  "libjpegturbowasm_decode.wasm": "a8d104602540b9e7aeefeaac23af7380f40c5a3460291d40246a26783929a696",
   "webp_dec.wasm": "30fb52fa2a80166d25ba7debf902218904ba1f05ccce9f959f722beff9e2f344"
 };

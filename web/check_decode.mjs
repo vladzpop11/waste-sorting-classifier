@@ -4,14 +4,15 @@
 // unusual or hostile file in DIR/edge (the same pixels, or refused when Python refuses).
 // Usage: node web/check_decode.mjs FIXTURES_DIR IMAGES_DIR
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { decodeImage, makeCodecs } from "./decode.js";
 
 globalThis.ImageData ??= class { constructor(data, width, height) { Object.assign(this, { data, width, height }); } };
 const vendor = new URL("./vendor/", import.meta.url);
 const codecs = makeCodecs({
-  jpegFactory: (await import(new URL("mozjpeg_dec.js", vendor))).default,
-  jpegWasm: readFileSync(new URL("mozjpeg_dec.wasm", vendor)),
+  jpegFactory: createRequire(import.meta.url)("./vendor/libjpegturbowasm_decode.js"),
+  jpegWasm: readFileSync(new URL("libjpegturbowasm_decode.wasm", vendor)),
   webpFactory: (await import(new URL("webp_dec.js", vendor))).default,
   webpWasm: readFileSync(new URL("webp_dec.wasm", vendor)),
 });
@@ -54,11 +55,15 @@ for (const c of edges) {
   const got = await attempt(readFileSync(join(fixtures, "edge", c.name)));
   slowest = Math.max(slowest, got.ms);
   let problem = null;
-  if (c.refused) {
+  if (c.refused && !c.page_differs) {
     if (!got.error) problem = `Python refuses (${c.refused.slice(0, 60)}), the page decodes it`;
     else counts.refusedLikePython++;
-  } else if (c.page_refuses) {
-    if (!got.error) problem = `expected the documented refusal (${c.page_refuses})`;
+  } else if (c.page_differs) {
+    // A documented difference: the page must do exactly what is recorded.
+    const { page, reason } = c.page_differs;
+    const did = got.error ? "refuses" : c.refused || !c.width ? "decodes" : differences(got,
+      readFileSync(join(fixtures, "edge", `${c.name}.rgb`)), c.width, c.height) ? "differs" : "decodes";
+    if (did !== page) problem = `documented difference (${reason}): expected the page to ${page.replace(/s$/, "")}, it ${did}`;
     else counts.knownDifference++;
   } else if (got.error) {
     problem = `the page refuses it (${got.error}), Python accepts it`;

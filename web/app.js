@@ -3,8 +3,9 @@
 // against the SHA-256 in model-info.js (part of the page's own code) before use: the model
 // and the three WebAssembly files (ONNX Runtime, the JPEG and WebP decoders). Images are
 // decoded by decode.js, not by the browser, so every browser gets Python's pixels.
+// The JPEG decoder's loader is a classic script (index.html) that defines one global.
+const jpegFactory = globalThis.libjpegturbowasm_decode;
 import * as ort from "./vendor/ort.wasm.min.mjs";
-import jpegFactory from "./vendor/mozjpeg_dec.js";
 import webpFactory from "./vendor/webp_dec.js";
 import { decodeImage, makeCodecs } from "./decode.js";
 import { MODEL, WASM } from "./model-info.js";
@@ -42,7 +43,7 @@ async function fetchVerified(url, expected) {
 async function load() {
   const [model, ortWasm, jpegWasm, webpWasm] = await Promise.all([
     fetchVerified("model.onnx", MODEL.sha256),
-    ...["ort-wasm-simd-threaded.wasm", "mozjpeg_dec.wasm", "webp_dec.wasm"].map((name) =>
+    ...["ort-wasm-simd-threaded.wasm", "libjpegturbowasm_decode.wasm", "webp_dec.wasm"].map((name) =>
       fetchVerified(`vendor/${name}`, WASM[name])),
   ]);
   ort.env.wasm.wasmBinary = ortWasm;
@@ -100,6 +101,27 @@ function showResult(probabilities) {
   }
 }
 
+// Upright RGB -> the preview canvas, at most 600 px on its longer side (nearest pixel).
+function drawPreview(canvas, rgb, width, height) {
+  const scale = Math.min(1, 600 / Math.max(width, height));
+  const w = Math.max(1, Math.round(width * scale)), h = Math.max(1, Math.round(height * scale));
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const image = ctx.createImageData(w, h);
+  for (let y = 0, o = 0; y < h; y++) {
+    const sy = Math.min(height - 1, Math.floor(y / scale));
+    for (let x = 0; x < w; x++, o += 4) {
+      const s = (sy * width + Math.min(width - 1, Math.floor(x / scale))) * 3;
+      image.data[o] = rgb[s];
+      image.data[o + 1] = rgb[s + 1];
+      image.data[o + 2] = rgb[s + 2];
+      image.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+}
+
 function showError(message) {
   const result = $("result");
   delete result.dataset.label;
@@ -119,9 +141,9 @@ async function classify(blob, id = ++latest) {
     if (blob.size > MAX_BYTES) throw new Error("That file is larger than 20 MB.");
     const { rgb, width, height } = await decodeImage(new Uint8Array(await blob.arrayBuffer()), codecs);
     if (id !== latest) return;
-    // The browser shows the photo only once it is known to be readable.
-    if (preview.src) URL.revokeObjectURL(preview.src);
-    preview.src = URL.createObjectURL(blob);
+    // The preview is drawn from the decoded pixels: the photo as the model sees it,
+    // including formats the browser itself cannot display.
+    drawPreview(preview, rgb, width, height);
     preview.hidden = false;
     $("drop-hint").hidden = true;
     const input = new ort.Tensor("float32", preprocess(rgb, width, height), [1, 3, 224, 224]);

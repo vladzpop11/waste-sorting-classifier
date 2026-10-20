@@ -7,7 +7,10 @@
 // - the default image (IDAT) of an animated PNG, as Pillow uses;
 // - damaged files are refused where Pillow refuses them: a bad checksum in a chunk before
 //   the image data, image data that ends early, an unknown filter.
+// Memory: the inflated rows are unfiltered in place, so a decode holds the compressed
+// data, the raw rows and the 8-bit output.
 import { ImageError, pngChunks } from "./image-header.js";
+import { inflateInto } from "./inflate.js";
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -27,39 +30,18 @@ const DEPTHS = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6
 // Adam7 passes: x0, y0, dx, dy.
 const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
 
-// Inflate until `expected` bytes have arrived. Like Pillow, a stream that is damaged only
-// after the pixel data (e.g. a missing checksum) is accepted; one that ends early is not.
-async function inflateAtLeast(data, expected) {
-  const reader = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
-  const out = new Uint8Array(expected);
-  let filled = 0;
-  try {
-    while (filled < expected) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const n = Math.min(value.length, expected - filled);
-      out.set(value.subarray(0, n), filled);
-      filled += n;
-    }
-  } catch {
-    // corrupt or truncated stream: judged by how much pixel data arrived
-  }
-  reader.cancel().catch(() => {});
-  if (filled < expected) throw damaged();
-  return out;
-}
-
-function unfilter(raw, offset, rows, rowBytes, bpp) {
-  const out = new Uint8Array(rows * rowBytes);
+// Undo the row filters in place: raw holds rows of [filter type][rowBytes bytes].
+function unfilterInPlace(raw, offset, rows, rowBytes, bpp) {
+  const stride = rowBytes + 1;
   for (let y = 0; y < rows; y++) {
-    const type = raw[offset + y * (rowBytes + 1)];
-    const src = offset + y * (rowBytes + 1) + 1;
-    const cur = y * rowBytes, prev = cur - rowBytes;
+    const start = offset + y * stride;
+    const type = raw[start];
+    const cur = start + 1, prev = cur - stride;
     for (let x = 0; x < rowBytes; x++) {
-      const a = x >= bpp ? out[cur + x - bpp] : 0;
-      const b = y > 0 ? out[prev + x] : 0;
-      const c = x >= bpp && y > 0 ? out[prev + x - bpp] : 0;
-      let v = raw[src + x];
+      const a = x >= bpp ? raw[cur + x - bpp] : 0;
+      const b = y > 0 ? raw[prev + x] : 0;
+      const c = x >= bpp && y > 0 ? raw[prev + x - bpp] : 0;
+      let v = raw[cur + x];
       if (type === 1) v += a;
       else if (type === 2) v += b;
       else if (type === 3) v += (a + b) >> 1;
@@ -67,10 +49,9 @@ function unfilter(raw, offset, rows, rowBytes, bpp) {
         const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
         v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
       } else if (type !== 0) throw damaged();
-      out[cur + x] = v & 0xff;
+      raw[cur + x] = v & 0xff;
     }
   }
-  return out;
 }
 
 // One sample (channel value) of a row, at full precision.
@@ -97,7 +78,7 @@ export async function decodePng(bytes) {
     const typeAndData = bytes.subarray(c.at + 4, c.at + 8 + c.data.length);
     const stored = new DataView(bytes.buffer, bytes.byteOffset + c.at + 8 + c.data.length, 4).getUint32(0);
     if (crc32(typeAndData) !== stored) throw damaged(); // Pillow checks every chunk before IDAT
-    if (c.type === "IHDR") ihdr = c.data;
+    if (c.type === "IHDR") ihdr = c.data; // the last one before IDAT, like Pillow
     else if (c.type === "PLTE") palette = c.data;
     else if (c.type === "tRNS") trns = c.data;
   }
@@ -119,7 +100,9 @@ export async function decodePng(bytes) {
   const total = idat.reduce((n, d) => n + d.length, 0);
   const compressed = new Uint8Array(total);
   idat.reduce((o, d) => (compressed.set(d, o), o + d.length), 0);
-  const raw = await inflateAtLeast(compressed, expected);
+  // Like Pillow, a stream damaged only after the pixel data (e.g. its checksum) is fine.
+  const raw = new Uint8Array(expected);
+  if (inflateInto(compressed, raw).filled < expected) throw damaged();
 
   // Transparency, as Pillow's convert("RGBA") applies it.
   let alphaOfIndex = null, transparent = null;
@@ -137,10 +120,12 @@ export async function decodePng(bytes) {
   let offset = 0;
   for (const p of passes) {
     if (!p.w || !p.h) continue;
-    const pixels = unfilter(raw, offset, p.h, p.rowBytes, bpp);
+    unfilterInPlace(raw, offset, p.h, p.rowBytes, bpp);
+    const passStart = offset;
     offset += p.h * (p.rowBytes + 1);
     for (let y = 0; y < p.h; y++) {
-      const row = pixels.subarray(y * p.rowBytes, (y + 1) * p.rowBytes);
+      const rowStart = passStart + y * (p.rowBytes + 1) + 1;
+      const row = raw.subarray(rowStart, rowStart + p.rowBytes);
       for (let x = 0; x < p.w; x++) {
         const o = ((p.y0 + y * p.dy) * width + p.x0 + x * p.dx) * outChannels;
         let r, g, b, a = 255;

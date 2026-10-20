@@ -78,7 +78,8 @@ def main() -> None:
             unrotated = model.session.run(["logits"], {"image": x[np.newaxis]})[0][0]
             result["logits_ignoring_orientation"] = unrotated.tolist()
         if name in KNOWN_DIFFERENCES:
-            result["page_refuses"] = KNOWN_DIFFERENCES[name]
+            page, reason = KNOWN_DIFFERENCES[name]
+            result["page_differs"] = {"page": page, "reason": reason}
         edges.append({"name": name, **result})
     (out / "edge.json").write_text(json.dumps(edges))
     refused = sum("refused" in e for e in edges)

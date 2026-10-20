@@ -62,17 +62,26 @@ make docker-stop
 5. **One test evaluation,** of the exported ONNX file that the API serves. `make evaluate` checks that this file was exported from the selected checkpoint, and refuses to run a second time. It was first rehearsed on validation (`--rehearse`), so the single real run was not the first.
 6. **A browser demo with the same numbers, in every browser.** The public demo is a static page ([web/](web/)) that runs the same ONNX file with ONNX Runtime Web.
    - **Decoding without the browser:** browsers decode images differently from Pillow. Safari uses its own JPEG decoder, and browsers apply colour profiles and premultiply transparency. So the page decodes images itself ([decode.js](web/decode.js)):
-     - JPEG and WebP with WebAssembly builds of libjpeg-turbo (via MozJPEG) and libwebp, the libraries Pillow uses;
-     - PNG with its own decoder ([png.js](web/png.js));
+     - JPEG with libjpeg-turbo 3 and WebP with libwebp, compiled to WebAssembly: the libraries Pillow uses;
+     - PNG with its own decoder ([png.js](web/png.js)), using a JavaScript zlib (fflate) so that every browser behaves the same;
      - transparency flattened with Pillow's arithmetic;
-     - EXIF and XMP orientation read exactly where Pillow reads them ([image-header.js](web/image-header.js)).
+     - EXIF and XMP orientation read exactly where and how Pillow reads them ([image-header.js](web/image-header.js)).
    - **Preprocessing in JavaScript:** [preprocess.js](web/preprocess.js) reproduces Pillow's fixed-point bilinear resize and Python's round-half-to-even centre crop.
    - **Proof:** `make check-web` (with `BROWSER=chrome`, `webkit` or `firefox`) runs three checks:
-     - the page's decoding produces pixels identical to Python's on all 360 validation photos and on 109 unusual files: every EXIF orientation layout, 1- to 16-bit and interlaced PNG, transparency, MPO, progressive JPEG and more;
-     - 10 damaged or hostile files are refused, as the API refuses them;
+     - the page's decoding gives pixels identical to Python's on all 360 validation photos, and on 129 unusual files: every EXIF and XMP layout, 1- to 16-bit and interlaced PNG, transparency, 4:4:0, arithmetic-coded and lossless JPEG, MPO and more;
+     - 26 damaged or hostile files are refused, as the API refuses them, including decompression bombs and a file that once froze the page;
      - the real page, in Chrome, WebKit (Safari's engine) and Firefox, gives Python's prediction for all 360 photos, with probabilities within 3e-6.
-   - **Documented difference:** CMYK JPEGs and animated WebP are refused by the page, which says so, although the API accepts them.
-   - **What the checks caught:** relying on browser decoding would have failed this. Safari's own JPEG decoding changed 1 of 360 predictions, Firefox flattened transparency differently, and Chrome applied EXIF orientation even when told not to. A review also found a 67-byte PNG that froze the earlier page for five minutes; it is now refused in milliseconds and part of the test set.
+   - **Fuzzing:** about 35,000 randomly mutated JPEG, PNG and WebP files were compared between the page and Python. None hung, crashed or used unbounded memory; the slowest took under a second. Every class of difference found is either fixed or listed below, and one file per class is kept in the tests ([tests/data/web-edge](tests/data/web-edge)).
+   - **Documented differences:** 11 files are handled differently from Python, each checked to stay that way ([web_edge_cases.py](src/waste_sorting_classifier/web_edge_cases.py)):
+     - two valid kinds the page refuses with a message, although the API accepts them: CMYK JPEGs (from print workflows) and animated WebP;
+     - files that break their format's rules, such as a PNG palette image without a palette or a JPEG without its end marker. Pillow tolerates some of these and rejects others; the page sometimes decides the other way. It never just stops responding: it either shows a result or explains that it can't read the file.
+     - JPEGs with corrupt image data, which Pillow decodes with a warning, are refused by the page.
+   - **What the checks caught:** relying on the browser to decode images would have failed these checks.
+     - Safari's own JPEG decoding changed 1 of 360 predictions.
+     - Firefox flattened transparency differently.
+     - Chrome applied EXIF orientation even when told not to.
+
+     Reviews and fuzzing also found a 67-byte PNG that froze the page for five minutes, a PNG text chunk that could expand to gigabytes, and EXIF layouts that rotated photos differently from Pillow. All are fixed and in the tests.
 
 ## Results
 

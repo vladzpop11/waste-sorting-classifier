@@ -35,10 +35,13 @@ def main() -> None:
     wasm = {}
     files = 0
     for package in json.loads((web / "vendor.json").read_text())["packages"]:
-        for name, expected in package["files"].items():
+        for name, entry in package["files"].items():
+            # "name": sha256, or "name": {"path": source path in the package, "sha256": ...}
+            source = entry["path"] if isinstance(entry, dict) else name
+            expected = entry["sha256"] if isinstance(entry, dict) else entry
             dest = web / "vendor" / name
             if not (dest.exists() and sha256(dest) == expected):
-                fetch(package["base_url"] + name, dest, expected)
+                fetch(package["base_url"] + source, dest, expected)
             if name.endswith(".wasm"):
                 wasm[name] = expected
             files += 1
