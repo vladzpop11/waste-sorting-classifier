@@ -137,7 +137,13 @@ def main(argv: list[str] | None = None) -> dict:
     optimizer = torch.optim.AdamW(model.parameters(), lr=tc["lr"], weight_decay=tc["weight_decay"])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=tc["label_smoothing"])
-    scaler = torch.cuda.amp.GradScaler(enabled=device.type == "cuda")
+    # torch.amp.GradScaler exists from PyTorch 2.3; the Intel-Mac build (2.2.2) has only the
+    # older torch.cuda.amp one. Mixed precision is used on GPUs only.
+    use_amp = device.type == "cuda"
+    if hasattr(torch.amp, "GradScaler"):
+        scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+    else:
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     out = args.output_dir
     out.mkdir(parents=True, exist_ok=True)
@@ -173,7 +179,7 @@ def main(argv: list[str] | None = None) -> dict:
             for x, y in loaders["train"]:
                 x, y = x.to(device), y.to(device)
                 optimizer.zero_grad(set_to_none=True)
-                with torch.autocast(device.type, enabled=device.type == "cuda"):
+                with torch.autocast(device.type, enabled=use_amp):
                     loss = loss_fn(model(x), y)
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)

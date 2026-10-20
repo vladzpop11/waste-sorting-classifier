@@ -1,5 +1,8 @@
 """Waste sorting image classifier."""
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
-__version__ = version("waste-sorting-classifier")
+try:
+    __version__ = version("waste-sorting-classifier")
+except PackageNotFoundError:  # running from a source checkout without installing (Kaggle)
+    __version__ = "0+source"
