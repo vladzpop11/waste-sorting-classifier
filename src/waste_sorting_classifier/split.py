@@ -10,6 +10,8 @@ the last decimals between platforms, so it is not recomputed elsewhere. load_spl
 checks every image against its recorded SHA-256.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering
@@ -63,12 +65,14 @@ def assign_splits(labels: np.ndarray, groups: np.ndarray, n_folds: int, seed: in
     return split
 
 
-def load_split(cfg: dict | None = None, verify: bool = True) -> pd.DataFrame:
+def load_split(
+    cfg: dict | None = None, verify: bool = True, images_dir: Path | None = None
+) -> pd.DataFrame:
     """The committed split, with every image checked against its recorded SHA-256."""
     cfg = cfg or load_config()
     split = pd.read_csv(project_path(cfg["split"]["file"]))
     if verify:
-        images_dir = project_path(cfg["data"]["raw_dir"]) / "images"
+        images_dir = images_dir or project_path(cfg["data"]["raw_dir"]) / "images"
         bad = [p for p, h in zip(split["path"], split["sha256"], strict=True)
                if sha256(images_dir / p) != h]  # fmt: skip
         if bad:

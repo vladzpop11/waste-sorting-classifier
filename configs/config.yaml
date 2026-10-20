@@ -23,3 +23,16 @@ split:
   # StratifiedGroupKFold: one fold is the test set, one the validation set, the rest train.
   n_folds: 7
   file: splits/split.csv
+
+train:
+  arch: resnet18          # ImageNet-pretrained torchvision model, new 6-class head
+  epochs: 25
+  batch_size: 32
+  lr: 0.0003
+  weight_decay: 0.0001
+  label_smoothing: 0.1
+  patience: 5             # early stopping on validation loss
+  # DataLoader worker processes: 2 on a GPU, 0 on CPU. On macOS with PyTorch 2.2.2, worker
+  # processes kept the interpreter from exiting after training (observed, 2026-10-20), and
+  # on CPU the model, not image loading, is the bottleneck.
+  num_workers: auto

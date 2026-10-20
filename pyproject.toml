@@ -36,10 +36,10 @@ train = [
     "torch>=2.4 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "torchvision>=0.19 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "onnx>=1.19.1",  # 1.19.0 omits its ml_dtypes>=0.5 requirement and breaks with ml_dtypes 0.4
-    "mlflow-skinny>=3",
     "scikit-learn>=1.9",
     "matplotlib>=3.11",
     "pandas>=2.2",
+    "mlflow>=3",
 ]
 demo = ["gradio>=5"]
 dev = ["httpx2>=2.13.1", "pre-commit>=4.7.0", "pytest>=9.1.1", "ruff>=0.17.1"]
@@ -66,3 +66,7 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+    # Raised inside MLflow's SQLAlchemy store, not by this project's code.
+    "ignore:The ``noload`` loader strategy is deprecated:DeprecationWarning",
+]
