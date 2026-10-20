@@ -46,3 +46,12 @@ jobs:
 
       # One CPU epoch on a small subset: the training code runs end to end on Linux.
       - run: make smoke-train
+
+      # The published artifact: download the evaluated ONNX model from the GitHub release
+      # (SHA-256 checked against models/model.json), then build the image with it and
+      # check that it serves.
+      - run: make fetch-model
+
+      - run: make docker-build
+
+      - run: make docker-smoke
