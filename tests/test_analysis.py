@@ -71,3 +71,11 @@ def test_a_class_missing_from_a_resample_is_not_scored_zero() -> None:
     ci = bootstrap_intervals(y, y.copy(), groups, 3, seed=0)["per_group"]
     assert ci["macro_f1"] == [1.0, 1.0]
     assert ci["per_class_f1"][2] == [1.0, 1.0]
+
+
+def test_low_confidence_threshold_is_none_when_no_threshold_meets_the_target() -> None:
+    from waste_sorting_classifier.metrics import low_confidence_threshold
+
+    flag = low_confidence_threshold(np.array([0.6, 0.7, 0.96, 0.97, 0.98]),
+                                    np.array([True, True, False, True, True]))  # fmt: skip
+    assert flag["threshold"] is None

@@ -33,8 +33,9 @@ demo = gr.Interface(
     title="Waste sorting classifier",
     description=(
         "EfficientNet-B0 fine-tuned on TrashNet: cardboard, glass, metal, paper, plastic or "
-        "trash. 95.6% accuracy on held-out photos of single objects on a plain background; "
-        "busy real-world scenes are outside what it was trained on. "
+        "trash. 94.3% accuracy on 366 test photos of single objects on a plain background, "
+        "with no near-duplicate in training; busy real-world scenes are outside what it was "
+        "trained on. "
         "[Code and evaluation](https://github.com/vladzpop11/waste-sorting-classifier)"
     ),
     flagging_mode="never",

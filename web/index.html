@@ -18,6 +18,7 @@
     --border: #dfe4e0;
     --accent: #2f7d5b;
     --accent-soft: #e3f1ea;
+    --accent-strong: #236347;
     --bar: #c9ddd2;
     --warn-bg: #fff4dc;
     --warn-text: #7a5410;
@@ -32,6 +33,7 @@
       --border: #2c3531;
       --accent: #5cc093;
       --accent-soft: #1f3329;
+      --accent-strong: #7fd3ab;
       --bar: #2f4a3d;
       --warn-bg: #3a2f14;
       --warn-text: #f0cf88;
@@ -49,7 +51,7 @@
   h1 { font-size: 1.75rem; margin: 0 0 4px; }
   .lede { color: var(--muted); margin: 0 0 20px; }
   .privacy {
-    display: inline-block; background: var(--accent-soft); color: var(--accent);
+    display: inline-block; background: var(--accent-soft); color: var(--accent-strong);
     border-radius: 999px; padding: 4px 12px; font-size: .875rem; font-weight: 600;
   }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
@@ -127,7 +129,7 @@
   <p class="status" id="status" role="status" aria-live="polite">Loading the model (16 MB)…</p>
 
   <footer>
-    <p>EfficientNet-B0 fine-tuned on TrashNet and exported to ONNX; it runs here with ONNX Runtime Web. On 366 test photos of objects it never saw in training: 94.3% accuracy (95% CI 90.3–96.9%). The weakest class is trash. Accuracy is lower on photos unlike anything in the training set.</p>
+    <p>EfficientNet-B0 fine-tuned on TrashNet and exported to ONNX; it runs here with ONNX Runtime Web. On 366 test photos with no near-duplicate in training: 94.3% accuracy (95% CI 90.3–96.9%). The weakest class is trash. Accuracy is lower on photos unlike the training photos of their class.</p>
     <p>Trained on photos of one object on a plain background: busy scenes and several objects at once are outside what it has learned. The examples are the first validation photo per class that the model gets right, so they show what it handles, not how often it fails.</p>
     <p><a href="https://github.com/vladzpop11/waste-sorting-classifier">Code, data handling and evaluation on GitHub</a></p>
   </footer>

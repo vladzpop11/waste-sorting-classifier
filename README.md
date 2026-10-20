@@ -6,16 +6,16 @@ Classify a photo of a waste item into six recycling categories: cardboard, glass
 
 ## Result in brief
 
-| On 366 test photos of objects never seen in training | Value | 95% CI, per photo | 95% CI, per group |
+| On 366 test photos with no near-duplicate in training | Value | 95% CI, per photo | 95% CI, per group |
 | --- | --- | --- | --- |
-| Accuracy | **94.3%** | 91.8–96.5% | 90.3–96.9% |
+| Accuracy | **94.3%** | 91.8–96.4% | 90.3–96.9% |
 | Macro F1 | **0.936** | 0.905–0.963 | 0.905–0.965 |
 | Weakest class: trash (19 photos), F1 | 0.889 | 0.762–0.974 | |
 | Latency, one upload, Docker on a 2-core 2018 MacBook Air | 49 ms mean, 63 ms p95 | | |
 
 - **The test set measures new objects.** Photos of the same object are kept on one side of the split, with a checked guarantee. A first version of the split leaked; it was rebuilt and the models retrained. See [Data](#data).
 - **Fine-tuning earns its GPU.** On validation it beats a tuned linear probe on frozen ImageNet features by 11 accuracy points, 94.0% against 83.1%.
-- **The setting is narrow:** one object on a plain background. On the 25 test photos least like any training photo, accuracy falls to 68%.
+- **The setting is narrow:** one object on a plain background. On the 25 test photos least like any training photo of their class, accuracy falls to 68%.
 
 **Try it:** [huggingface.co/spaces/VladZpp/waste-sorting-classifier](https://huggingface.co/spaces/VladZpp/waste-sorting-classifier). The model runs in your browser, so photos never leave your device.
 
@@ -60,10 +60,19 @@ make docker-stop
    - **Equivalence:** on 20 validation photos the predictions are identical, with a maximum logit difference of 1.4e-6.
    - **Cross-check:** the ONNX model reproduces the GPU run's validation scores exactly (95.00%, macro F1 0.9398).
 5. **One test evaluation,** of the exported ONNX file that the API serves. `make evaluate` checks that this file was exported from the selected checkpoint, and refuses to run a second time. It was first rehearsed on validation (`--rehearse`), so the single real run was not the first.
-6. **A browser demo with the same numbers.** The public demo is a static page ([web/](web/)) that runs the same ONNX file with ONNX Runtime Web, served from the page itself and pinned by SHA-256. The page checks the model's SHA-256 before use.
-   - **Preprocessing in JavaScript:** [preprocess.js](web/preprocess.js) reimplements the Python preprocessing, including Pillow's fixed-point bilinear resize and Python's round-half-to-even centre crop. [image-header.js](web/image-header.js) reads the format, size and EXIF orientation before the browser decodes anything.
-   - **Proof:** `make check-web` uploads all 360 validation photos through the real page in headless Chrome. Every prediction matches Python, with probabilities within 3e-6.
-   - **Unusual files:** 35 more files must also match and pass: every EXIF orientation in JPEG, PNG and WebP, transparency, 16-bit, greyscale, CMYK, a colour profile, MPO and progressive JPEG. Five invalid ones must be refused. This found a real bug: Chrome applies EXIF orientation to JPEG and PNG even when told not to, but not to WebP. The page now resets the tags in a copy of the file and rotates the image itself.
+6. **A browser demo with the same numbers, in every browser.** The public demo is a static page ([web/](web/)) that runs the same ONNX file with ONNX Runtime Web.
+   - **Decoding without the browser:** browsers decode images differently from Pillow. Safari uses its own JPEG decoder, and browsers apply colour profiles and premultiply transparency. So the page decodes images itself ([decode.js](web/decode.js)):
+     - JPEG and WebP with WebAssembly builds of libjpeg-turbo (via MozJPEG) and libwebp, the libraries Pillow uses;
+     - PNG with its own decoder ([png.js](web/png.js));
+     - transparency flattened with Pillow's arithmetic;
+     - EXIF and XMP orientation read exactly where Pillow reads them ([image-header.js](web/image-header.js)).
+   - **Preprocessing in JavaScript:** [preprocess.js](web/preprocess.js) reproduces Pillow's fixed-point bilinear resize and Python's round-half-to-even centre crop.
+   - **Proof:** `make check-web` (with `BROWSER=chrome`, `webkit` or `firefox`) runs three checks:
+     - the page's decoding produces pixels identical to Python's on all 360 validation photos and on 109 unusual files: every EXIF orientation layout, 1- to 16-bit and interlaced PNG, transparency, MPO, progressive JPEG and more;
+     - 10 damaged or hostile files are refused, as the API refuses them;
+     - the real page, in Chrome, WebKit (Safari's engine) and Firefox, gives Python's prediction for all 360 photos, with probabilities within 3e-6.
+   - **Documented difference:** CMYK JPEGs and animated WebP are refused by the page, which says so, although the API accepts them.
+   - **What the checks caught:** relying on browser decoding would have failed this. Safari's own JPEG decoding changed 1 of 360 predictions, Firefox flattened transparency differently, and Chrome applied EXIF orientation even when told not to. A review also found a 67-byte PNG that froze the earlier page for five minutes; it is now refused in milliseconds and part of the test set.
 
 ## Results
 
@@ -77,7 +86,7 @@ Validation (360 photos) ([reports/model_selection.json](reports/model_selection.
 | **EfficientNet-B0, fine-tuned, mean of 3 seeds** | **94.0%** | **0.931** (sd 0.010) |
 | EfficientNet-B0, deployed run (seed 44) | 95.0% | 0.940 |
 
-- **The rule chose EfficientNet-B0** by 0.015 macro F1, more than the 0.01 margin, so speed did not decide it. The gap is about 1.5 seed standard deviations: real but modest.
+- **The rule chose EfficientNet-B0** by 0.015 macro F1, more than the 0.01 margin, so speed did not decide it. The gap is about 1.5 seed standard deviations: suggestive, not conclusive (with three seeds each, a Welch t-test gives p = 0.13). The rule was fixed in advance, so the choice stands either way.
 - **The deployed run's validation score is optimistic.** It is the best of three seeds on validation; the three-seed mean is the fairer estimate, and the test result agrees with it.
 - **Training length:** five of the six runs had their best epoch at 22–24 of 25, so longer training might help a little.
 
@@ -103,7 +112,7 @@ Test (366 photos, evaluated once) ([reports/test_metrics.json](reports/test_metr
 | 0.80–0.85 | 223 | 97.8% |
 | 0.85–0.86 | 46 | 97.8% |
 
-Most test photos have a fairly similar training photo, and those are classified well. Photos unlike anything in training are much harder; that is the better guide to performance on new kinds of objects.
+Most test photos have a fairly similar training photo, and those are classified well. Photos unlike any training photo of their class are much harder; that is the better guide to performance on new kinds of objects.
 
 **Calibration** ([reliability diagram](reports/figures/reliability_test.png)): the model is underconfident, as label smoothing tends to make it (expected calibration error 0.085). Answers at 90% confidence or more were right 99.0% of the time on test (208 photos). The demo marks answers below 90% as less certain. That threshold was chosen on validation by a fixed rule: the lowest threshold above which validation accuracy reaches 99%.
 
@@ -111,11 +120,13 @@ Most test photos have a fairly similar training photo, and those are classified 
 
 ![Validation errors: 18 of 360](reports/figures/val_errors.png)
 
-The 18 validation errors ([reports/val_errors.json](reports/val_errors.json)) and 21 test errors fall into three groups:
+Most of the 18 validation errors ([reports/val_errors.json](reports/val_errors.json)) and 21 test errors fall into three groups:
 
 - **Transparent and shiny items** confused among glass, plastic and metal: 10 validation and 11 test errors. Examples are green and clear bottles seen end-on, lids and a foil sweet bag.
 - **Crumpled paper and wrappers called trash, and trash called plastic or metal:** 6 validation errors. Trash is the smallest and most mixed class.
-- **Paper and plastic confused,** in both directions.
+- **Paper and plastic confused:** both directions on validation; on test, 3 paper photos called plastic.
+
+The other 5 test errors are scattered (for example paper called metal, trash called paper).
 
 Most errors are uncertain: 16 of 18 validation errors and 19 of 21 test errors were below 90% confidence. A few are confident: a green plastic bottle called glass at 92%.
 
@@ -135,7 +146,7 @@ Most errors are uncertain: 16 of 18 validation errors and 19 of 21 test errors w
   - It is never part of the served image.
 - **CI audits** the dependencies it actually installs (Linux, current PyTorch) with `pip-audit`.
 - **The API** refuses a model file whose SHA-256 differs from `models/model.json`. It checks image size and aspect ratio from the header before decoding, and never echoes decoder error text.
-- **The demo page** loads nothing from third parties. A Content-Security-Policy limits it to its own files, and the model's SHA-256 is part of the page's code.
+- **The demo page** loads nothing from third parties. A Content-Security-Policy limits it to its own files, plus Hugging Face's own download domains, to which the Space redirects large files. The page checks the SHA-256 of the model and of all three WebAssembly files (ONNX Runtime and the two image decoders) before using them; those hashes are part of the page's code.
 
 ## Limitations
 
@@ -150,9 +161,9 @@ Most errors are uncertain: 16 of 18 validation errors and 19 of 21 test errors w
 
 - Collect or source photos of real bins and mixed scenes, to evaluate outside the studio setting.
 - Temperature-scale the probabilities on validation, so that the displayed confidence means what it says.
-- Train slightly longer, since most runs were still improving, keeping selection on validation.
+- Try longer training: five of six runs had their best epoch near the end, although validation loss was already flat, so the gain may be small. Keep selection on validation.
 - Quantise the ONNX model for faster CPU inference, and drop SymPy from the image.
 
 ## License
 
-Code: [MIT](LICENSE). Data: TrashNet, MIT, downloaded by the pipeline and not included in this repository. The model release includes the ONNX file and the PyTorch checkpoint it was exported from.
+Code: [MIT](LICENSE). Data: TrashNet, MIT, downloaded by the pipeline; seven of its photos are included (the demo examples and `tests/example.jpg`). The model release includes the ONNX file and the PyTorch checkpoint it was exported from.

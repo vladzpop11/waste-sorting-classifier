@@ -74,6 +74,19 @@ def test_transparency_is_flattened_onto_white() -> None:
     assert (rgb[9, 9] == [200, 0, 0]).all()
 
 
+@pytest.mark.parametrize("mode, hidden", [("RGB", (10, 20, 30)), ("L", 7)])
+def test_single_colour_transparency_is_flattened_onto_white(mode, hidden) -> None:
+    # PNG optimisers store on/off transparency as one transparent colour (tRNS).
+    image = Image.new(mode, (4, 4), hidden)
+    image.putpixel((0, 0), (200, 0, 0) if mode == "RGB" else 99)
+    buf = io.BytesIO()
+    image.save(buf, format="PNG", transparency=hidden)
+    buf.seek(0)
+    rgb = np.asarray(load_rgb(buf))
+    assert (rgb[3, 3] == [255, 255, 255]).all()
+    assert (rgb[0, 0] == ([200, 0, 0] if mode == "RGB" else [99, 99, 99])).all()
+
+
 @pytest.mark.parametrize("size", [(40000, 1), (1, 40000), (311, 31), (6000, 5000)])
 def test_out_of_limit_images_are_refused_before_resizing(size) -> None:
     with pytest.raises(ValueError, match="too"):

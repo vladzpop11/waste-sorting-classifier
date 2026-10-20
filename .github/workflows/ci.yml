@@ -38,9 +38,11 @@ jobs:
           uv pip freeze --exclude-editable | sed 's/+cpu$//' > "$RUNNER_TEMP/requirements.txt"
           uvx pip-audit==2.10.1 --disable-pip --no-deps -r "$RUNNER_TEMP/requirements.txt"
 
-      # Download TrashNet (SHA-256 and class counts checked) first, so the tests that check
-      # the committed split against the real images also run.
-      - run: make data
+      # Download TrashNet (SHA-256 and class counts checked) and compute the image
+      # embeddings, so the tests that check the committed split against the real images,
+      # including its guarantee (no validation or test photo with a same-class training
+      # photo at cosine >= 0.86), also run.
+      - run: make data embeddings
 
       - run: make check
 

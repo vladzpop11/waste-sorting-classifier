@@ -1,10 +1,36 @@
 {
-  "package": "onnxruntime-web",
-  "version": "1.30.0",
-  "base_url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/",
-  "files": {
-    "ort.wasm.min.mjs": "219e6a1fc8a9938268d18efca3c91d310bd2f4a59bbd13744df5b2b7fc6cee3b",
-    "ort-wasm-simd-threaded.mjs": "e13f7f94fc51b4ca72b12faeb1ee95f4ace6dfbc8939bc718aabdc0a27c4299b",
-    "ort-wasm-simd-threaded.wasm": "3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2"
-  }
+  "comment": "Third-party files the page serves from web/vendor/, downloaded by `make web` and checked against these SHA-256 values. The .wasm hashes are also checked by the page before use (web/model-info.js).",
+  "packages": [
+    {
+      "package": "onnxruntime-web",
+      "version": "1.30.0",
+      "license": "MIT",
+      "base_url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/",
+      "files": {
+        "ort.wasm.min.mjs": "219e6a1fc8a9938268d18efca3c91d310bd2f4a59bbd13744df5b2b7fc6cee3b",
+        "ort-wasm-simd-threaded.mjs": "e13f7f94fc51b4ca72b12faeb1ee95f4ace6dfbc8939bc718aabdc0a27c4299b",
+        "ort-wasm-simd-threaded.wasm": "3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2"
+      }
+    },
+    {
+      "package": "@jsquash/jpeg (MozJPEG, built on libjpeg-turbo)",
+      "version": "1.6.0",
+      "license": "Apache-2.0 (wrapper); libjpeg-turbo/MozJPEG: IJG and BSD-style",
+      "base_url": "https://cdn.jsdelivr.net/npm/@jsquash/jpeg@1.6.0/codec/dec/",
+      "files": {
+        "mozjpeg_dec.js": "a6836b2d03d4fdda64b4aef380e6298d7421c070e7e1e4cf13ec129df7aa0b5e",
+        "mozjpeg_dec.wasm": "a7c4b12169817e779ff4af137981393ae924944e167ad1bd95747c9199162d3e"
+      }
+    },
+    {
+      "package": "@jsquash/webp (libwebp)",
+      "version": "1.5.0",
+      "license": "Apache-2.0 (wrapper); libwebp: BSD-3-Clause",
+      "base_url": "https://cdn.jsdelivr.net/npm/@jsquash/webp@1.5.0/codec/dec/",
+      "files": {
+        "webp_dec.js": "c57971611f4d9ec04e4636ce7bb4a35c031b24cbdb013518f0a017d9f6014370",
+        "webp_dec.wasm": "30fb52fa2a80166d25ba7debf902218904ba1f05ccce9f959f722beff9e2f344"
+      }
+    }
+  ]
 }

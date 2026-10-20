@@ -8,7 +8,8 @@ Before that, every image is brought to 8-bit RGB the same way everywhere:
 - turned upright from its EXIF orientation (phones often store photos rotated);
 - 16-bit greyscale scaled to 8 bits (Pillow's plain conversion would clip it to white);
 - transparency flattened onto white (instead of exposing the hidden colour of transparent
-  pixels, which differs between tools).
+  pixels, which differs between tools), including PNG's single transparent colour (tRNS)
+  on greyscale and RGB images.
 web/preprocess.js mirrors all of this for the browser demo.
 """
 
@@ -44,9 +45,7 @@ def to_rgb(image: Image.Image) -> Image.Image:
     if image.mode in ("I;16", "I;16L", "I;16B", "I;16N", "I"):
         values = np.asarray(image, dtype=np.uint32) >> 8  # 16-bit range -> 8-bit
         image = Image.fromarray(np.clip(values, 0, 255).astype(np.uint8), mode="L")
-    has_alpha = image.mode in ("RGBA", "LA", "PA", "RGBa", "La") or (
-        image.mode == "P" and "transparency" in image.info
-    )
+    has_alpha = image.mode in ("RGBA", "LA", "PA", "RGBa", "La") or "transparency" in image.info
     if has_alpha:
         rgba = image.convert("RGBA")
         white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))

@@ -1,7 +1,7 @@
 [project]
 name = "waste-sorting-classifier"
 version = "0.1.0"
-description = "Waste sorting image classifier: transfer learning on a free GPU, ONNX export, FastAPI in Docker, Gradio demo"
+description = "Waste sorting image classifier: transfer learning on a free GPU, ONNX export, FastAPI in Docker, in-browser demo"
 readme = "README.md"
 authors = [
     { name = "Vladzpop", email = "291580488+vladzpop11@users.noreply.github.com" }

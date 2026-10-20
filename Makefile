@@ -3,7 +3,7 @@ NAME  ?= waste-sorting-classifier
 PORT  ?= 8000
 
 .PHONY: help setup format lint test check data split baseline smoke-train train export \
-        select evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors demo-local web check-web
+        embeddings select evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors demo-local web check-web
 
 help:  ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -29,6 +29,9 @@ data:  ## Download TrashNet (SHA-256 and class counts checked)
 
 split:  ## Recompute the grouped split (normally not needed: splits/split.csv is committed)
 	uv run python -m waste_sorting_classifier.split
+
+embeddings:  ## Only the image embeddings the split is based on (lets the tests check the split guarantee)
+	uv run python -m waste_sorting_classifier.split --embeddings-only
 
 baseline:  ## Majority-class and linear-probe baselines on the validation split
 	uv run python -m waste_sorting_classifier.baseline
@@ -58,7 +61,7 @@ serve:  ## Run the API locally without Docker
 docker-build:  ## Build the API image (needs models/model.onnx)
 	docker build --platform=linux/amd64 -t $(IMAGE) .
 
-docker-run:  ## Start the API container on localhost:$(PORT) (replaces a running one)
+docker-run:  ## Start the API container on localhost (port 8000 by default; replaces a running one)
 	-@docker rm -f $(NAME) >/dev/null 2>&1
 	docker run --rm -d --name $(NAME) -p 127.0.0.1:$(PORT):8000 $(IMAGE)
 
@@ -86,22 +89,26 @@ demo-local:  ## The Gradio demo on localhost (needs make fetch-model)
 
 WEB_TEST := .cache/web-test
 CHROME ?= /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+BROWSER ?= chrome
 # tests/example.jpg is plastic1.jpg, a training photo: docker-smoke expects this label.
 SMOKE_LABEL := plastic
 
 # What the static Hugging Face Space serves (web/README.md carries its settings).
-WEB_SITE := web/index.html web/app.js web/preprocess.js web/image-header.js web/model-info.js \
-	web/README.md web/examples web/vendor
+WEB_SITE := web/index.html web/app.js web/decode.js web/png.js web/preprocess.js \
+	web/image-header.js web/model-info.js web/README.md web/examples web/vendor
 
 web:  ## Prepare web/: pinned ONNX Runtime Web files and model-info.js from models/model.json
 	uv run python -m waste_sorting_classifier.web_build
 
-check-web: web  ## Browser pipeline vs Python: validation photos and edge cases (needs Node.js, Chrome)
+check-web: web  ## Browser demo vs Python: pixels, tensors and the real page (BROWSER=chrome|webkit|firefox)
 	uv run python -m waste_sorting_classifier.web_fixtures $(WEB_TEST)/fixtures
-	npm install --silent --no-audit --no-fund --prefix $(WEB_TEST) onnxruntime-web@1.30.0 puppeteer-core@24
+	node web/check_decode.mjs $(WEB_TEST)/fixtures data/raw/images
+	npm install --silent --no-audit --no-fund --prefix $(WEB_TEST) onnxruntime-web@1.30.0 puppeteer-core@24 \
+	  $(if $(filter-out chrome,$(BROWSER)),playwright@1.56.1)
+	$(if $(filter-out chrome,$(BROWSER)),cd $(WEB_TEST) && npx playwright install $(BROWSER))
 	node web/check_preprocess.mjs $(WEB_TEST)/fixtures models/model.onnx $(WEB_TEST)/node_modules/onnxruntime-web
 	rm -rf $(WEB_TEST)/site && mkdir -p $(WEB_TEST)/site $(WEB_TEST)/shots
 	cp -R $(WEB_SITE) models/model.onnx $(WEB_TEST)/site/
 	cd $(WEB_TEST)/site && (python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 & echo $$! > ../server.pid)
-	sleep 1; NODE_PATH=$(WEB_TEST)/node_modules node web/check_page.cjs http://127.0.0.1:8765/ \
+	sleep 1; BROWSER=$(BROWSER) NODE_PATH=$(WEB_TEST)/node_modules node web/check_page.cjs http://127.0.0.1:8765/ \
 	  $(WEB_TEST)/fixtures data/raw/images $(WEB_TEST)/shots "$(CHROME)"; status=$$?; kill $$(cat $(WEB_TEST)/server.pid); exit $$status

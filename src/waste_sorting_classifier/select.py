@@ -25,7 +25,7 @@ def decide(means: dict[str, float], margin: float, faster: str) -> str:
 def main() -> None:
     cfg = load_config()
     rule = cfg["selection"]
-    runs_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else project_path(rule["runs_dir"])
+    runs_dir = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else project_path(rule["runs_dir"])
     runs = {}
     for arch in rule["archs"]:
         for seed in rule["seeds"]:

@@ -16,6 +16,7 @@ checks every image against its recorded SHA-256.
 """
 
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -119,6 +120,9 @@ def main() -> None:
 
     embeddings = embed(index["path"].tolist(), images_dir)
     np.save(project_path(cfg["data"]["processed_dir"]) / "embeddings.npy", embeddings)
+    if "--embeddings-only" in sys.argv[1:]:  # for checking the committed split (CI)
+        print(f"{len(embeddings)} embeddings saved")
+        return
     groups = group_similar(embeddings, labels, threshold)
     split = assign_splits(labels, groups, cfg["split"]["n_folds"], cfg["seed"])
     worst = max_cross_split_similarity(embeddings, labels, split)

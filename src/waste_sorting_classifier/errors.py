@@ -75,9 +75,12 @@ def main() -> None:
         },
     )
     print(f"{len(wrong)} of {len(val)} validation photos wrong; ECE {calibration['ece']:.4f}")
-    below, above = flag["accuracy_below"], flag["accuracy_above"]
-    print(f"flag below {flag['threshold']:.2f} confidence: {flag['share_below']:.1%} of photos, "
-          f"accuracy {below} below and {above} above")  # fmt: skip
+    if flag["threshold"] is None:
+        print("no confidence threshold reaches the target accuracy: no low-confidence note")
+    else:
+        below, above = flag["accuracy_below"], flag["accuracy_above"]
+        print(f"flag below {flag['threshold']:.2f} confidence: {flag['share_below']:.1%} of "
+              f"photos, accuracy {below} below and {above} above")  # fmt: skip
 
 
 if __name__ == "__main__":

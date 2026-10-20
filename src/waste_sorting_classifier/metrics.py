@@ -28,9 +28,14 @@ def low_confidence_threshold(
     confidence: np.ndarray, correct: np.ndarray, target: float = 0.99
 ) -> dict:
     """The lowest confidence threshold (0.50, 0.55, ... 0.95) above which predictions were
-    right at least `target` of the time; predictions below it get a low-confidence note."""
+    right at least `target` of the time; predictions below it get a low-confidence note.
+    The threshold is None when no grid value meets the target."""
     grid = np.round(np.arange(0.50, 0.951, 0.05), 2)
-    chosen = next((t for t in grid if correct[confidence >= t].mean() >= target), grid[-1])
+    chosen = next((t for t in grid if (confidence >= t).any()
+                   and correct[confidence >= t].mean() >= target), None)  # fmt: skip
+    if chosen is None:
+        return {"threshold": None, "target_accuracy_above": target, "accuracy_above": None,
+                "accuracy_below": None, "share_below": None}  # fmt: skip
     below = confidence < chosen
     return {
         "threshold": float(chosen),
