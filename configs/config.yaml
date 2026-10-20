@@ -15,10 +15,11 @@ paths:
   figures_dir: reports/figures
 
 split:
-  # Photos of the same object (TrashNet photographs many objects several times) must stay
-  # on one side of the split. Groups: average-linkage clustering, within each class, of
-  # ImageNet ResNet18 embeddings at this cosine similarity (chosen by inspecting pairs;
-  # see reports/data.md). The resulting split is committed in splits/split.csv.
+  # Photos of the same object (TrashNet photographs many objects several times) must stay on
+  # one side of the split. Within each class, every pair of photos whose ImageNet ResNet18
+  # features have cosine similarity >= this threshold is joined (plus average-linkage
+  # clusters at the same threshold); evidence for the value in reports/data.md. split.py
+  # refuses to save a split with a cross-split pair at or above it.
   similarity_threshold: 0.86
   # StratifiedGroupKFold: one fold is the test set, one the validation set, the rest train.
   n_folds: 7

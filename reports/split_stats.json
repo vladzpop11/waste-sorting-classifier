@@ -1,0 +1,17 @@
+{
+  "threshold": 0.86,
+  "images": 2521,
+  "groups": 1857,
+  "photos_in_multi_photo_groups": 835,
+  "largest_group": 77,
+  "split_sizes": {
+    "train": 1795,
+    "test": 366,
+    "val": 360
+  },
+  "max_same_class_similarity_to_train": {
+    "val": 0.8599021434783936,
+    "test": 0.8595743179321289
+  },
+  "split_sha256": "95ba7bd24bbe219e8dbc19f8f6939fed1a97e7887989276d93daf3a4fcbb943d"
+}

@@ -49,3 +49,28 @@ def test_splits_keep_groups_together_and_stay_stratified() -> None:
     assert shares["val"] == pytest.approx(1 / 7, abs=0.03)
     for label, rate in (pd.crosstab(df["label"], df["split"], normalize="index")["test"]).items():
         assert rate == pytest.approx(1 / 7, abs=0.04), label
+
+
+def test_grouping_guarantees_no_similar_pair_straddles_the_split() -> None:
+    """Average linkage alone does not guarantee this (version 1 of the split leaked)."""
+    from waste_sorting_classifier.split import max_cross_split_similarity
+
+    rng = np.random.default_rng(3)
+    centres = rng.normal(size=(60, 32))
+    emb = np.repeat(centres, 5, axis=0) + rng.normal(scale=0.35, size=(300, 32))
+    emb /= np.linalg.norm(emb, axis=1, keepdims=True)
+    labels = np.repeat(["a", "b", "c"], 100)
+    threshold = 0.8
+    split = assign_splits(labels, group_similar(emb, labels, threshold), n_folds=7, seed=42)
+    worst = max_cross_split_similarity(emb, labels, split)
+    assert max(worst.values()) < threshold
+    sims = emb @ emb.T
+    assert (sims[np.triu_indices(300, 1)] >= threshold).sum() > 50  # the test is not vacuous
+
+
+def test_grouping_follows_chains_of_similar_photos() -> None:
+    a = np.array([1.0, 0.0])
+    b = np.array([np.cos(0.3), np.sin(0.3)])  # a~b and b~c are similar, a~c is not
+    c = np.array([np.cos(0.6), np.sin(0.6)])
+    groups = group_similar(np.vstack([a, b, c]), np.array(["x", "x", "x"]), threshold=0.95)
+    assert len(set(groups)) == 1
