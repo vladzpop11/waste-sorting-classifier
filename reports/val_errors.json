@@ -1,0 +1,198 @@
+{
+  "onnx_sha256": "e6eccc9d36936c9e6646a5d716507d0a51db62f049070f18719053de5b8bcf10",
+  "errors": 18,
+  "images": 360,
+  "accuracy": 0.95,
+  "calibration": {
+    "ece": 0.07978855553600522,
+    "bins": [
+      {
+        "from": 0.2,
+        "to": 0.3,
+        "photos": 1,
+        "accuracy": 0.0,
+        "confidence": 0.28498709201812744
+      },
+      {
+        "from": 0.3,
+        "to": 0.4,
+        "photos": 1,
+        "accuracy": 0.0,
+        "confidence": 0.3834976553916931
+      },
+      {
+        "from": 0.4,
+        "to": 0.5,
+        "photos": 4,
+        "accuracy": 0.25,
+        "confidence": 0.4453985095024109
+      },
+      {
+        "from": 0.5,
+        "to": 0.6,
+        "photos": 8,
+        "accuracy": 0.75,
+        "confidence": 0.5546916127204895
+      },
+      {
+        "from": 0.6,
+        "to": 0.7,
+        "photos": 11,
+        "accuracy": 0.9090909090909091,
+        "confidence": 0.6643157601356506
+      },
+      {
+        "from": 0.7,
+        "to": 0.8,
+        "photos": 29,
+        "accuracy": 0.8275862068965517,
+        "confidence": 0.7509714961051941
+      },
+      {
+        "from": 0.8,
+        "to": 0.9,
+        "photos": 92,
+        "accuracy": 0.967391304347826,
+        "confidence": 0.8736127614974976
+      },
+      {
+        "from": 0.9,
+        "to": 1.0,
+        "photos": 214,
+        "accuracy": 0.9906542056074766,
+        "confidence": 0.9337880611419678
+      }
+    ]
+  },
+  "low_confidence": {
+    "threshold": 0.9,
+    "target_accuracy_above": 0.99,
+    "accuracy_above": 0.9906542056074766,
+    "accuracy_below": 0.8904109589041096,
+    "share_below": 0.40555555555555556
+  },
+  "pairs": {
+    "glass -> plastic": 3,
+    "paper -> trash": 3,
+    "glass -> metal": 2,
+    "plastic -> glass": 2,
+    "metal -> glass": 1,
+    "metal -> plastic": 1,
+    "paper -> plastic": 1,
+    "plastic -> metal": 1,
+    "plastic -> paper": 1,
+    "plastic -> trash": 1,
+    "trash -> metal": 1,
+    "trash -> plastic": 1
+  },
+  "photos": [
+    {
+      "path": "plastic/plastic441.jpg",
+      "label": "plastic",
+      "predicted": "glass",
+      "confidence": 0.9176
+    },
+    {
+      "path": "paper/paper568.jpg",
+      "label": "paper",
+      "predicted": "trash",
+      "confidence": 0.9115
+    },
+    {
+      "path": "glass/glass170.jpg",
+      "label": "glass",
+      "predicted": "metal",
+      "confidence": 0.8515
+    },
+    {
+      "path": "metal/metal225.jpg",
+      "label": "metal",
+      "predicted": "plastic",
+      "confidence": 0.8383
+    },
+    {
+      "path": "plastic/plastic478.jpg",
+      "label": "plastic",
+      "predicted": "trash",
+      "confidence": 0.8015
+    },
+    {
+      "path": "glass/glass55.jpg",
+      "label": "glass",
+      "predicted": "plastic",
+      "confidence": 0.7702
+    },
+    {
+      "path": "metal/metal154.jpg",
+      "label": "metal",
+      "predicted": "glass",
+      "confidence": 0.7573
+    },
+    {
+      "path": "glass/glass322.jpg",
+      "label": "glass",
+      "predicted": "metal",
+      "confidence": 0.7479
+    },
+    {
+      "path": "glass/glass495.jpg",
+      "label": "glass",
+      "predicted": "plastic",
+      "confidence": 0.735
+    },
+    {
+      "path": "paper/paper590.jpg",
+      "label": "paper",
+      "predicted": "trash",
+      "confidence": 0.7105
+    },
+    {
+      "path": "plastic/plastic460.jpg",
+      "label": "plastic",
+      "predicted": "metal",
+      "confidence": 0.6193
+    },
+    {
+      "path": "plastic/plastic469.jpg",
+      "label": "plastic",
+      "predicted": "glass",
+      "confidence": 0.5818
+    },
+    {
+      "path": "paper/paper334.jpg",
+      "label": "paper",
+      "predicted": "trash",
+      "confidence": 0.5463
+    },
+    {
+      "path": "plastic/plastic147.jpg",
+      "label": "plastic",
+      "predicted": "paper",
+      "confidence": 0.4433
+    },
+    {
+      "path": "paper/paper242.jpg",
+      "label": "paper",
+      "predicted": "plastic",
+      "confidence": 0.4422
+    },
+    {
+      "path": "trash/trash124.jpg",
+      "label": "trash",
+      "predicted": "plastic",
+      "confidence": 0.4116
+    },
+    {
+      "path": "trash/trash32.jpg",
+      "label": "trash",
+      "predicted": "metal",
+      "confidence": 0.3835
+    },
+    {
+      "path": "glass/glass184.jpg",
+      "label": "glass",
+      "predicted": "plastic",
+      "confidence": 0.285
+    }
+  ]
+}

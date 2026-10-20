@@ -135,9 +135,10 @@ function showResult(probabilities) {
     const note = document.createElement("p");
     note.className = "note";
     const pct = Math.round(flag.threshold * 100);
+    const rate = (x) => `${Math.round(x * 100)}%`;
     note.textContent = flag.accuracyBelow === null
-      ? `Low confidence: below ${pct}%, treat the answer as a guess.`
-      : `Low confidence: on validation photos below ${pct}% confidence, the model was right ${Math.round(flag.accuracyBelow * 100)}% of the time.`;
+      ? `Less certain than usual: below ${pct}% confidence, check the answer.`
+      : `Less certain than usual: on validation photos below ${pct}% confidence, the model was right ${rate(flag.accuracyBelow)} of the time, against ${rate(flag.accuracyAbove)} above it.`;
     result.append(note);
   }
 }

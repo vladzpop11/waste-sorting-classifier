@@ -9,5 +9,10 @@ export const MODEL = {
     "plastic",
     "trash"
   ],
-  "sha256": "ac2385ef2c50ac11d6d2975ad14af481a6b932a598d2814d6662db5900e813e9"
+  "sha256": "e6eccc9d36936c9e6646a5d716507d0a51db62f049070f18719053de5b8bcf10",
+  "lowConfidence": {
+    "threshold": 0.9,
+    "accuracyBelow": 0.8904109589041096,
+    "accuracyAbove": 0.9906542056074766
+  }
 };

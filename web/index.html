@@ -125,7 +125,7 @@
   <p class="status" id="status" role="status" aria-live="polite">Loading the model (16 MB)…</p>
 
   <footer>
-    <p>EfficientNet-B0 fine-tuned on TrashNet and exported to ONNX; it runs here with ONNX Runtime Web. On 361 held-out photos: 95.6% accuracy (95% CI 93.4–97.5%). The weakest class is trash.</p>
+    <p>EfficientNet-B0 fine-tuned on TrashNet and exported to ONNX; it runs here with ONNX Runtime Web. On 366 test photos of objects it never saw in training: 94.3% accuracy (95% CI 90.3–96.9%). The weakest class is trash. Accuracy is lower on photos unlike anything in the training set.</p>
     <p>Trained on photos of one object on a plain background: busy scenes and several objects at once are outside what it has learned. The examples are the first validation photo per class that the model gets right, so they show what it handles, not how often it fails.</p>
     <p><a href="https://github.com/vladzpop11/waste-sorting-classifier">Code, data handling and evaluation on GitHub</a></p>
   </footer>

@@ -43,21 +43,31 @@ def test_low_confidence_threshold_is_the_lowest_meeting_the_target() -> None:
     assert flag["share_below"] == 3 / 8
 
 
-def test_grouped_bootstrap_treats_a_group_as_one_observation() -> None:
-    from waste_sorting_classifier.metrics import grouped_bootstrap
+def test_grouped_intervals_treat_a_group_as_one_observation() -> None:
+    from waste_sorting_classifier.metrics import bootstrap_intervals
 
     rng = np.random.default_rng(0)
     y = rng.integers(0, 3, 60)
     pred = np.where(rng.random(60) < 0.8, y, (y + 1) % 3)
-    single = grouped_bootstrap(y, pred, np.arange(60), 3, seed=1)
+    single = bootstrap_intervals(y, pred, np.arange(60), 3, seed=1)["per_group"]
     # Five identical copies of every photo, grouped: no new evidence, so the same intervals.
-    copies = grouped_bootstrap(np.repeat(y, 5), np.repeat(pred, 5), np.repeat(np.arange(60), 5),
-                               3, seed=1)  # fmt: skip
-    assert copies["accuracy"] == single["accuracy"]
-    assert copies["per_class_f1"] == single["per_class_f1"]
-    # Treated as independent photos, the copies would give a narrower, overconfident interval.
-    naive = grouped_bootstrap(np.repeat(y, 5), np.repeat(pred, 5), np.arange(300), 3, seed=1)
+    copies = bootstrap_intervals(np.repeat(y, 5), np.repeat(pred, 5),
+                                 np.repeat(np.arange(60), 5), 3, seed=1)  # fmt: skip
+    assert copies["per_group"]["accuracy"] == single["accuracy"]
+    assert copies["per_group"]["per_class_f1"] == single["per_class_f1"]
+    # Treated as independent photos, the copies give a narrower, overconfident interval.
     width = lambda ci: ci[1] - ci[0]  # noqa: E731
-    assert width(naive["accuracy"]) < 0.6 * width(single["accuracy"])
+    assert width(copies["per_photo"]["accuracy"]) < 0.6 * width(single["accuracy"])
     low, high = single["accuracy"]
     assert low <= (y == pred).mean() <= high
+
+
+def test_a_class_missing_from_a_resample_is_not_scored_zero() -> None:
+    from waste_sorting_classifier.metrics import bootstrap_intervals
+
+    # Perfect predictions; class 2 is a single group, so many resamples leave it out.
+    y = np.array([0] * 20 + [1] * 20 + [2] * 10)
+    groups = np.concatenate([np.arange(40), np.full(10, 99)])
+    ci = bootstrap_intervals(y, y.copy(), groups, 3, seed=0)["per_group"]
+    assert ci["macro_f1"] == [1.0, 1.0]
+    assert ci["per_class_f1"][2] == [1.0, 1.0]

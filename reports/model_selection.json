@@ -1,0 +1,125 @@
+{
+  "rule": {
+    "archs": [
+      "resnet18",
+      "efficientnet_b0"
+    ],
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "margin": 0.01,
+    "faster": "efficientnet_b0",
+    "runs_dir": "artifacts/kaggle-v2/run"
+  },
+  "commit": "2184ce444039ee0905ce287a2c5fb20f619489fd",
+  "runs": {
+    "resnet18/seed42": {
+      "arch": "resnet18",
+      "seed": 42,
+      "best_epoch": 24,
+      "val_loss": 0.5809099819925096,
+      "val_accuracy": 0.9333333333333333,
+      "val_macro_f1": 0.9252487267825865,
+      "checkpoint_sha256": "b71b883d42d7acb528fcc7b7a1a8702e20e622a734b85c52f6acceffe44e3610",
+      "versions": {
+        "python": "3.13.15",
+        "torch": "2.11.0+cu128",
+        "cuda": "12.8",
+        "gpu": "Tesla T4"
+      }
+    },
+    "resnet18/seed43": {
+      "arch": "resnet18",
+      "seed": 43,
+      "best_epoch": 22,
+      "val_loss": 0.6111001743210687,
+      "val_accuracy": 0.9277777777777778,
+      "val_macro_f1": 0.9159420462003699,
+      "checkpoint_sha256": "bd2774e62516c9706d2eb0a0342c32899fd74350638b58a0493af5d1e76aded3",
+      "versions": {
+        "python": "3.13.15",
+        "torch": "2.11.0+cu128",
+        "cuda": "12.8",
+        "gpu": "Tesla T4"
+      }
+    },
+    "resnet18/seed44": {
+      "arch": "resnet18",
+      "seed": 44,
+      "best_epoch": 24,
+      "val_loss": 0.6204424990548028,
+      "val_accuracy": 0.9166666666666666,
+      "val_macro_f1": 0.9063627627403675,
+      "checkpoint_sha256": "970fea228209cfbd36d16a54c878983fc35a35f95e7b0ea69d072b237e8405b4",
+      "versions": {
+        "python": "3.13.15",
+        "torch": "2.11.0+cu128",
+        "cuda": "12.8",
+        "gpu": "Tesla T4"
+      }
+    },
+    "efficientnet_b0/seed42": {
+      "arch": "efficientnet_b0",
+      "seed": 42,
+      "best_epoch": 24,
+      "val_loss": 0.5733073976304796,
+      "val_accuracy": 0.9277777777777778,
+      "val_macro_f1": 0.9204976183237051,
+      "checkpoint_sha256": "0204287744f6d080efaf1a7cf8b63f577db18de54984ec3bf8f255a44422c8e3",
+      "versions": {
+        "python": "3.13.15",
+        "torch": "2.11.0+cu128",
+        "cuda": "12.8",
+        "gpu": "Tesla T4"
+      }
+    },
+    "efficientnet_b0/seed43": {
+      "arch": "efficientnet_b0",
+      "seed": 43,
+      "best_epoch": 23,
+      "val_loss": 0.5725850701332093,
+      "val_accuracy": 0.9416666666666667,
+      "val_macro_f1": 0.9320627506750306,
+      "checkpoint_sha256": "7ecfc67757893bec9d05a8691256bbb96e90503bb7e83af270b576937006ff78",
+      "versions": {
+        "python": "3.13.15",
+        "torch": "2.11.0+cu128",
+        "cuda": "12.8",
+        "gpu": "Tesla T4"
+      }
+    },
+    "efficientnet_b0/seed44": {
+      "arch": "efficientnet_b0",
+      "seed": 44,
+      "best_epoch": 13,
+      "val_loss": 0.5560856593979729,
+      "val_accuracy": 0.95,
+      "val_macro_f1": 0.9397630664596731,
+      "checkpoint_sha256": "bfa1f3d381ea03976c632df3189da1c1cbbb2f5f253b8c434bc74a37a55e39b4",
+      "versions": {
+        "python": "3.13.15",
+        "torch": "2.11.0+cu128",
+        "cuda": "12.8",
+        "gpu": "Tesla T4"
+      }
+    }
+  },
+  "per_arch": {
+    "resnet18": {
+      "mean_val_macro_f1": 0.9158511785744413,
+      "sd_val_macro_f1": 0.009443309914700382,
+      "mean_val_accuracy": 0.9259259259259259
+    },
+    "efficientnet_b0": {
+      "mean_val_macro_f1": 0.9307744784861363,
+      "sd_val_macro_f1": 0.009697118484087268,
+      "mean_val_accuracy": 0.9398148148148148
+    }
+  },
+  "chosen_arch": "efficientnet_b0",
+  "chosen_run": "efficientnet_b0/seed44",
+  "chosen_checkpoint": "artifacts/kaggle-v2/run/efficientnet_b0/seed44/model.pt",
+  "chosen_checkpoint_sha256": "bfa1f3d381ea03976c632df3189da1c1cbbb2f5f253b8c434bc74a37a55e39b4"
+}

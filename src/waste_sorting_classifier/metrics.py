@@ -1,7 +1,7 @@
 """Evaluation statistics shared by the validation and test reports (no PyTorch)."""
 
 import numpy as np
-from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_support
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 N_BOOTSTRAP = 2000
 
@@ -41,14 +41,26 @@ def low_confidence_threshold(
     }
 
 
-def grouped_bootstrap(
+def bootstrap_intervals(
     y: np.ndarray, pred: np.ndarray, groups: np.ndarray, n_classes: int, seed: int
 ) -> dict:
-    """95% intervals from resampling whole groups (photos of one object) with replacement.
+    """95% intervals from resampling with replacement, two ways:
 
-    Photos of one object succeed or fail together, so resampling single photos would
-    pretend there is more independent evidence than there is and give too-narrow intervals.
+    - per photo: treats every photo as independent. Too narrow when several photos show
+      the same object, because they succeed or fail together;
+    - per group: resamples whole similarity groups. Too wide when a group chains together
+      different objects (the split's groups are connected components, and one can be large).
+    The truth lies between. Macro F1 averages the classes present in each resample: a class
+    a resample happens to leave out has no score, not a score of 0.
     """
+    return {
+        "per_photo": _bootstrap(y, pred, np.arange(len(y)), n_classes, seed),
+        "per_group": _bootstrap(y, pred, groups, n_classes, seed),
+    }
+
+
+def _bootstrap(y: np.ndarray, pred: np.ndarray, groups: np.ndarray, n_classes: int,
+               seed: int) -> dict:  # fmt: skip
     rng = np.random.default_rng(seed)
     labels = list(range(n_classes))
     names, inverse = np.unique(groups, return_inverse=True)
@@ -56,13 +68,12 @@ def grouped_bootstrap(
     samples = {"accuracy": [], "macro_f1": [], "f1": [], "recall": []}
     for _ in range(N_BOOTSTRAP):
         i = np.concatenate([members[g] for g in rng.integers(0, len(members), len(members))])
-        samples["accuracy"].append(accuracy_score(y[i], pred[i]))
-        samples["macro_f1"].append(f1_score(y[i], pred[i], labels=labels, average="macro",
-                                            zero_division=0))  # fmt: skip
         _, recall, f1, support = precision_recall_fscore_support(
             y[i], pred[i], labels=labels, zero_division=0
         )
-        absent = support == 0  # a class can be missing from a resample: no score for it
+        absent = support == 0
+        samples["accuracy"].append(accuracy_score(y[i], pred[i]))
+        samples["macro_f1"].append(f1[~absent].mean())
         samples["f1"].append(np.where(absent, np.nan, f1))
         samples["recall"].append(np.where(absent, np.nan, recall))
 
@@ -72,7 +83,8 @@ def grouped_bootstrap(
 
     f1s, recalls = np.array(samples["f1"]), np.array(samples["recall"])
     return {
-        "method": f"{N_BOOTSTRAP} resamples of whole groups ({len(members)} groups)",
+        "resamples": N_BOOTSTRAP,
+        "units": len(members),
         "accuracy": interval(np.array(samples["accuracy"])),
         "macro_f1": interval(np.array(samples["macro_f1"])),
         "per_class_f1": [interval(f1s[:, k]) for k in labels],

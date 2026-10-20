@@ -45,3 +45,12 @@ def test_web_demo_records_the_evaluated_model() -> None:
     assert web["sha256"] == model["onnx_sha256"] == json.loads(metrics.read_text())["onnx_sha256"]
     assert web["classes"] == model["classes"]
     assert web["arch"] == model["arch"]
+
+
+def test_demo_examples_are_validation_photos() -> None:
+    from waste_sorting_classifier.artifacts import sha256
+
+    split = load_split(CFG, verify=False).set_index("sha256")
+    for example in sorted(project_path("web/examples").glob("*.jpg")):
+        row = split.loc[sha256(example)]
+        assert (row["split"], row["label"]) == ("val", example.stem), example.name

@@ -12,6 +12,9 @@ rule chose. Reports:
 
 python -m waste_sorting_classifier.evaluate --rehearse runs the same code on the validation
 split and writes to .cache/rehearsal/, to check the script before its single real run.
+--recompute-intervals recomputes the intervals from the recorded test predictions, without
+running the model on the test photos again (used once, to fix a bootstrap bug; see
+"revisions" in reports/test_metrics.json).
 """
 
 import os
@@ -29,7 +32,7 @@ from sklearn.metrics import (
 from waste_sorting_classifier import preprocess as pp
 from waste_sorting_classifier.artifacts import read_json, write_json
 from waste_sorting_classifier.config import load_config, project_path
-from waste_sorting_classifier.metrics import grouped_bootstrap, reliability
+from waste_sorting_classifier.metrics import bootstrap_intervals, reliability
 from waste_sorting_classifier.onnx_model import OnnxClassifier
 from waste_sorting_classifier.plots import save_confusion, save_reliability
 from waste_sorting_classifier.split import load_split
@@ -52,9 +55,53 @@ def nearest_train_similarity(cfg: dict, split: pd.DataFrame, part: str) -> pd.Se
     return pd.Series(np.where(same, sims, -1).max(1), index=split["path"].iloc[test])
 
 
+def add_intervals(record: dict, y: np.ndarray, pred: np.ndarray, groups: np.ndarray,
+                  seed: int) -> None:  # fmt: skip
+    ci = bootstrap_intervals(y, pred, groups, len(record["classes"]), seed)
+    record["ci95"] = {way: {k: ci[way][k] for k in ["resamples", "units", "accuracy", "macro_f1"]}
+                      for way in ci}  # fmt: skip
+    for k, c in enumerate(record["classes"]):
+        for score in ["f1", "recall"]:
+            record["per_class"][c][f"{score}_ci95"] = {
+                way: ci[way][f"per_class_{score}"][k] for way in ci
+            }
+
+
+def report(record: dict, part: str) -> None:
+    for name in ["accuracy", "macro_f1"]:
+        ways = ", ".join(f"{way} {lo:.4f}-{hi:.4f}" for way, v in record["ci95"].items()
+                         for lo, hi in [v[name]])  # fmt: skip
+        print(f"{part} {name}: {record[name]:.4f} (95% CI {ways})")
+    for c, m in record["per_class"].items():
+        scores = " ".join(f"{k} {m[k]:.3f}" for k in ["precision", "recall", "f1"])
+        lo, hi = m["f1_ci95"]["per_photo"]
+        print(f"  {c:10s} {scores} (n={m['support']}, F1 per-photo CI {lo:.3f}-{hi:.3f})")
+    print(f"ECE {record['calibration']['ece']:.4f}")
+    for b in record["accuracy_by_similarity_to_train"]:
+        print(f"  similarity {b['from']:.2f}-{b['to']:.2f}: {b['accuracy']:.3f} ({b['photos']})")
+
+
+def recompute_intervals(cfg: dict, path) -> None:
+    record = read_json(path)
+    groups = load_split(cfg, verify=False).set_index("path")["group"]
+    paths = [r["path"] for r in record["predictions"]]
+    y = np.array([record["classes"].index(r["label"]) for r in record["predictions"]])
+    pred = np.array([record["classes"].index(r["predicted"]) for r in record["predictions"]])
+    add_intervals(record, y, pred, groups.loc[paths].to_numpy(), cfg["seed"])
+    record.setdefault("revisions", []).append(
+        "Intervals recomputed from the recorded predictions (the model was not run again): "
+        "the first run's grouped bootstrap scored a class missing from a resample as F1 0, "
+        "and per-photo intervals were added."
+    )
+    write_json(path, record)
+    report(record, "test")
+
+
 def main() -> None:
     cfg = load_config()
     reports = project_path(cfg["paths"]["reports_dir"])
+    if "--recompute-intervals" in sys.argv[1:]:
+        return recompute_intervals(cfg, reports / "test_metrics.json")
     rehearse = "--rehearse" in sys.argv[1:]
     part = "val" if rehearse else "test"
     figures = (
@@ -92,7 +139,6 @@ def main() -> None:
     pred = proba.argmax(1)
     correct = pred == y
     precision, recall, f1, support = precision_recall_fscore_support(y, pred, zero_division=0)
-    ci = grouped_bootstrap(y, pred, test["group"].to_numpy(), len(classes), cfg["seed"])
     calibration = reliability(proba, y)
     test["similarity"] = similarity.loc[test["path"]].to_numpy()
     edges = [*SIMILARITY_BANDS, cfg["split"]["similarity_threshold"]]
@@ -108,15 +154,12 @@ def main() -> None:
         "groups": int(test["group"].nunique()),
         "accuracy": float(accuracy_score(y, pred)),
         "macro_f1": float(f1_score(y, pred, average="macro", zero_division=0)),
-        "ci95": ci,
         "per_class": {
             c: {
                 "precision": float(precision[k]),
                 "recall": float(recall[k]),
                 "f1": float(f1[k]),
                 "support": int(support[k]),
-                "f1_ci95": ci["per_class_f1"][k],
-                "recall_ci95": ci["per_class_recall"][k],
             }  # fmt: skip
             for k, c in enumerate(classes)
         },
@@ -140,6 +183,7 @@ def main() -> None:
             for i, (r, p) in enumerate(zip(test.itertuples(), pred, strict=True))
         ],
     }
+    add_intervals(record, y, pred, test["group"].to_numpy(), cfg["seed"])
     write_json(out, record)
     save_confusion(np.array(record["confusion"]), classes, figures / f"confusion_{part}.png",
                    title=f"{part.capitalize()} confusion matrix")  # fmt: skip
@@ -147,15 +191,7 @@ def main() -> None:
         calibration, figures / f"reliability_{part}.png", f"{part.capitalize()} calibration"
     )
 
-    for name in ["accuracy", "macro_f1"]:
-        low, high = ci[name]
-        print(f"{part} {name}: {record[name]:.4f} (95% CI {low:.4f}-{high:.4f}, grouped)")
-    for c, m in record["per_class"].items():
-        scores = " ".join(f"{k} {m[k]:.3f}" for k in ["precision", "recall", "f1"])
-        print(f"  {c:10s} {scores} (n={m['support']})")
-    print(f"ECE {calibration['ece']:.4f}")
-    for b in bands:
-        print(f"  similarity {b['from']:.2f}-{b['to']:.2f}: {b['accuracy']:.3f} ({b['photos']})")
+    report(record, part)
 
 
 if __name__ == "__main__":

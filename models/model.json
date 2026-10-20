@@ -42,11 +42,11 @@
     "torch": "2.2.2",
     "onnx": "1.23.2"
   },
-  "checkpoint_sha256": "486dbaaf5d7be3fdecd4315a72cc8452f97aae0f7971700a5af99ec7ccfac774",
-  "onnx_sha256": "ac2385ef2c50ac11d6d2975ad14af481a6b932a598d2814d6662db5900e813e9",
+  "checkpoint_sha256": "bfa1f3d381ea03976c632df3189da1c1cbbb2f5f253b8c434bc74a37a55e39b4",
+  "onnx_sha256": "e6eccc9d36936c9e6646a5d716507d0a51db62f049070f18719053de5b8bcf10",
   "equivalence_check": {
     "images": 20,
-    "max_abs_logit_diff": 5.841255187988281e-06,
+    "max_abs_logit_diff": 1.3709068298339844e-06,
     "same_predictions": true,
     "tolerance": 0.0001
   }

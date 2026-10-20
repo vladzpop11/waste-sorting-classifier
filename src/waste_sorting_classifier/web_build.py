@@ -6,13 +6,27 @@
   models/model.json, and its low-confidence threshold from reports/val_errors.json
   (`make errors`). The page trusts these constants (part of its own code), not a JSON file
   sitting next to the model.
+- web/examples/: per class, the first validation photo (in path order) that the model gets
+  right, copied byte for byte. Never a training or test photo.
 """
 
 import json
 
 from waste_sorting_classifier.artifacts import sha256
-from waste_sorting_classifier.config import project_path
+from waste_sorting_classifier.config import load_config, project_path
 from waste_sorting_classifier.fetch_model import fetch
+from waste_sorting_classifier.split import load_split
+
+
+def copy_examples(classes: list[str], wrong: set[str]) -> None:
+    cfg = load_config()
+    images_dir = project_path(cfg["data"]["raw_dir"]) / "images"
+    val = load_split(cfg, verify=False).query("split == 'val'").sort_values("path")
+    for label in classes:
+        path = next(p for p in val.loc[val["label"] == label, "path"] if p not in wrong)
+        dest = project_path("web/examples") / f"{label}.jpg"
+        dest.write_bytes((images_dir / path).read_bytes())
+        print(f"example {label}: {path}")
 
 
 def main() -> None:
@@ -34,7 +48,9 @@ def main() -> None:
         info["lowConfidence"] = {
             "threshold": flag["threshold"],
             "accuracyBelow": flag["accuracy_below"],
+            "accuracyAbove": flag["accuracy_above"],
         }
+        copy_examples(meta["classes"], {e["path"] for e in analysis["photos"]})
     else:
         print("warning: no reports/val_errors.json, so no low-confidence note (run `make errors`)")
     (web / "model-info.js").write_text(
