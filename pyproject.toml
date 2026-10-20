@@ -1,0 +1,67 @@
+[project]
+name = "waste-sorting-classifier"
+version = "0.1.0"
+description = "Waste sorting image classifier: transfer learning on a free GPU, ONNX export, FastAPI in Docker, Gradio demo"
+readme = "README.md"
+authors = [
+    { name = "Vladzpop", email = "291580488+vladzpop11@users.noreply.github.com" }
+]
+requires-python = ">=3.12,<3.13"  # PyTorch 2.2.2, the last Intel-Mac build, stops at 3.12
+license = "MIT"
+license-files = ["LICENSE"]
+# Serving needs only ONNX Runtime, not PyTorch. On an Intel Mac, PyTorch stops at 2.2.2
+# (which needs NumPy 1.x) and ONNX Runtime at 1.23.2; everywhere else gets current versions.
+dependencies = [
+    "fastapi>=0.144.0",
+    "numpy<2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "numpy>=2 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "onnxruntime==1.23.2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "onnxruntime>=1.23 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "pillow>=11",
+    "python-multipart>=0.0.20",
+    "pyyaml>=6.0.3",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+# Training and export (PyTorch). Linux uses the CPU-only PyTorch index; Kaggle uses its
+# own preinstalled GPU PyTorch.
+train = [
+    "torch==2.2.2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "torchvision==0.17.2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "torch>=2.4 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "torchvision>=0.19 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
+    "onnx>=1.19.1",  # 1.19.0 omits its ml_dtypes>=0.5 requirement and breaks with ml_dtypes 0.4
+    "mlflow-skinny>=3",
+    "scikit-learn>=1.9",
+    "matplotlib>=3.11",
+]
+demo = ["gradio>=5"]
+dev = ["httpx2>=2.13.1", "pre-commit>=4.7.0", "pytest>=9.1.1", "ruff>=0.17.1"]
+
+[tool.uv]
+default-groups = ["dev", "train"]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
