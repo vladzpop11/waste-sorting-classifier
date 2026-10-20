@@ -25,6 +25,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from waste_sorting_classifier.config import load_config, project_path
 from waste_sorting_classifier.dataset import WasteImages
 from waste_sorting_classifier.model import build_model
+from waste_sorting_classifier.plots import save_confusion
 from waste_sorting_classifier.split import load_split
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
@@ -65,28 +66,6 @@ def evaluate(model, loader, device, loss_fn) -> tuple[float, np.ndarray, np.ndar
             targets_all.append(y.cpu())
     logits = torch.cat(logits_all)
     return total / len(logits), logits.softmax(1).numpy(), torch.cat(targets_all).numpy()
-
-
-def save_confusion(
-    cm: np.ndarray, classes: list[str], path: Path, title: str = "Validation confusion matrix"
-) -> None:
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots(figsize=(6, 5))
-    ax.imshow(cm, cmap="Blues")
-    ax.set_xticks(range(len(classes)), classes, rotation=45, ha="right")
-    ax.set_yticks(range(len(classes)), classes)
-    for i in range(len(classes)):
-        for j in range(len(classes)):
-            color = "white" if cm[i, j] > cm.max() / 2 else "black"
-            ax.text(j, i, cm[i, j], ha="center", va="center", color=color)
-    ax.set(xlabel="predicted", ylabel="true", title=title)
-    fig.tight_layout()
-    fig.savefig(path, dpi=120)
-    plt.close(fig)
 
 
 def main(argv: list[str] | None = None) -> dict:

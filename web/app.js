@@ -10,7 +10,6 @@ ort.env.wasm.wasmPaths = new URL("./vendor/", import.meta.url).href;
 ort.env.wasm.numThreads = 1; // multi-threading needs cross-origin isolation, not set here
 
 const MAX_BYTES = 20 * 1024 * 1024;
-const LOW_CONFIDENCE = 0.63; // most validation errors had confidence below 63%
 const EXAMPLES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"];
 
 const $ = (id) => document.getElementById(id);
@@ -131,10 +130,14 @@ function showResult(probabilities) {
     list.append(li);
   }
   result.append(label, conf, list);
-  if (top.p < LOW_CONFIDENCE) {
+  const flag = MODEL.lowConfidence; // chosen on validation photos by `make errors`
+  if (flag && top.p < flag.threshold) {
     const note = document.createElement("p");
     note.className = "note";
-    note.textContent = "Low confidence: most of the model's mistakes on validation photos were below 63% confidence.";
+    const pct = Math.round(flag.threshold * 100);
+    note.textContent = flag.accuracyBelow === null
+      ? `Low confidence: below ${pct}%, treat the answer as a guess.`
+      : `Low confidence: on validation photos below ${pct}% confidence, the model was right ${Math.round(flag.accuracyBelow * 100)}% of the time.`;
     result.append(note);
   }
 }

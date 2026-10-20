@@ -6,6 +6,7 @@ Uploads tests/example.jpg sequentially after a warm-up and writes reports/latenc
 """
 
 import json
+import math
 import platform
 import statistics
 import sys
@@ -58,8 +59,8 @@ def main() -> None:
         "image": "tests/example.jpg (512x384 JPEG)",
         "requests": N_REQUESTS,
         "mean_ms": statistics.mean(ms),
-        "p50_ms": ms[len(ms) // 2],
-        "p95_ms": ms[int(0.95 * len(ms)) - 1],
+        "p50_ms": statistics.median(ms),
+        "p95_ms": ms[math.ceil(0.95 * len(ms)) - 1],  # nearest-rank: 48th of 50
         "max_ms": ms[-1],
         "model": health["model"],
         "onnx_sha256": health["onnx_sha256"],

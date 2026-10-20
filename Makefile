@@ -65,13 +65,15 @@ docker-run:  ## Start the API container on localhost:$(PORT) (replaces a running
 docker-stop:  ## Stop the API container
 	docker stop $(NAME)
 
-docker-smoke: docker-run  ## Start the container, check /health and /predict on tests/example.jpg, stop it
-	@for i in $$(seq 1 30); do curl -sf localhost:$(PORT)/health >/dev/null && break; sleep 1; done
-	curl -sf localhost:$(PORT)/health
-	@echo
-	curl -sf -X POST localhost:$(PORT)/predict -F file=@tests/example.jpg
-	@echo
-	docker stop $(NAME)
+docker-smoke: docker-run  ## Start the container, check /health, /predict and a refused upload, stop it
+	@mkdir -p .cache; trap 'docker stop $(NAME) >/dev/null' EXIT; set -e; \
+	for i in $$(seq 1 30); do curl -sf localhost:$(PORT)/health >/dev/null && break; sleep 1; done; \
+	curl -sf localhost:$(PORT)/health; echo; \
+	curl -sf -X POST localhost:$(PORT)/predict -F file=@tests/example.jpg | tee .cache/smoke.json; echo; \
+	python3 -c 'import json,sys; r=json.load(open(".cache/smoke.json")); p=r["probabilities"]; \
+	assert r["label"]=="$(SMOKE_LABEL)", r; assert abs(sum(p.values())-1)<1e-4, p; print("label ok")'; \
+	code=$$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:$(PORT)/predict -F file=@README.md); \
+	test "$$code" = 422 && echo "non-image refused: $$code"
 
 latency:  ## Measure /predict latency against the running API (writes reports/latency.json)
 	uv run python -m waste_sorting_classifier.latency http://localhost:$(PORT)
@@ -83,6 +85,8 @@ demo-local:  ## The Gradio demo on localhost (needs make fetch-model)
 	uv run --group demo python demo/gradio_app.py
 
 WEB_TEST := .cache/web-test
+# tests/example.jpg is plastic1.jpg, a training photo: docker-smoke expects this label.
+SMOKE_LABEL := plastic
 
 # What the static Hugging Face Space serves (web/README.md carries its settings).
 WEB_SITE := web/index.html web/app.js web/preprocess.js web/image-header.js web/model-info.js \
