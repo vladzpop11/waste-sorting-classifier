@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 
@@ -45,8 +46,9 @@ def limit_per_class(rows, n: int | None, classes: list[str] | None, seed: int):
     if classes:
         rows = rows[rows["label"].isin(classes)]
     if n:
-        rows = rows.groupby("label", group_keys=False).apply(
-            lambda g: g.sample(min(n, len(g)), random_state=seed)
+        # Explicit concat: pandas 3 drops the grouping column inside groupby().apply().
+        rows = pd.concat(
+            [g.sample(min(n, len(g)), random_state=seed) for _, g in rows.groupby("label")]
         )
     return rows.reset_index(drop=True)
 

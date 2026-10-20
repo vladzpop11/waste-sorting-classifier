@@ -81,3 +81,11 @@ def test_training_refuses_images_that_differ_from_the_split(tiny_project) -> Non
     with pytest.raises(ValueError, match="differ from the committed split"):
         train.main(["--output-dir", str(tmp_path / "run"), "--images-dir", str(images),
                     "--no-pretrained", "--device", "cpu"])  # fmt: skip
+
+
+def test_limit_per_class_keeps_labels_and_caps_each_class() -> None:
+    rows = pd.DataFrame({"path": [f"p{i}" for i in range(9)], "label": list("aaaaabbbc")})
+    out = train.limit_per_class(rows, 2, None, seed=0)
+    assert "label" in out.columns
+    assert out["label"].value_counts().to_dict() == {"a": 2, "b": 2, "c": 1}
+    assert train.limit_per_class(rows, None, ["c"], seed=0)["label"].tolist() == ["c"]

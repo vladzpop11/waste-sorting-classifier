@@ -1,0 +1,10 @@
+{
+  "majority class": {
+    "val_accuracy": 0.23333333333333334,
+    "val_macro_f1": 0.06306306306306307
+  },
+  "linear probe (frozen ImageNet ResNet18)": {
+    "val_accuracy": 0.7777777777777778,
+    "val_macro_f1": 0.7136450791688757
+  }
+}
