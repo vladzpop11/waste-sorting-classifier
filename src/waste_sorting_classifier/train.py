@@ -67,7 +67,9 @@ def evaluate(model, loader, device, loss_fn) -> tuple[float, np.ndarray, np.ndar
     return total / len(logits), logits.softmax(1).numpy(), torch.cat(targets_all).numpy()
 
 
-def save_confusion(cm: np.ndarray, classes: list[str], path: Path) -> None:
+def save_confusion(
+    cm: np.ndarray, classes: list[str], path: Path, title: str = "Validation confusion matrix"
+) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -81,7 +83,7 @@ def save_confusion(cm: np.ndarray, classes: list[str], path: Path) -> None:
         for j in range(len(classes)):
             color = "white" if cm[i, j] > cm.max() / 2 else "black"
             ax.text(j, i, cm[i, j], ha="center", va="center", color=color)
-    ax.set(xlabel="predicted", ylabel="true", title="Validation confusion matrix")
+    ax.set(xlabel="predicted", ylabel="true", title=title)
     fig.tight_layout()
     fig.savefig(path, dpi=120)
     plt.close(fig)
@@ -93,6 +95,7 @@ def main(argv: list[str] | None = None) -> dict:
     p.add_argument("--images-dir", type=Path, default=None)
     p.add_argument("--device", default="auto")
     p.add_argument("--arch", default=None, help="override train.arch (resnet18, efficientnet_b0)")
+    p.add_argument("--seed", type=int, default=None, help="override the config seed")
     p.add_argument("--epochs", type=int, default=None)
     p.add_argument("--batch-size", type=int, default=None)
     p.add_argument("--num-workers", type=int, default=None)
@@ -108,7 +111,8 @@ def main(argv: list[str] | None = None) -> dict:
         tc["arch"] = args.arch
     epochs = args.epochs or tc["epochs"]
     batch_size = args.batch_size or tc["batch_size"]
-    seed_everything(cfg["seed"])
+    seed = cfg["seed"] if args.seed is None else args.seed
+    seed_everything(seed)
     device = pick_device(args.device)
 
     num_workers = args.num_workers
@@ -122,7 +126,7 @@ def main(argv: list[str] | None = None) -> dict:
     classes = args.classes or cfg["data"]["classes"]
     rows = {
         name: limit_per_class(
-            split[split["split"] == name], args.limit_per_class, args.classes, cfg["seed"]
+            split[split["split"] == name], args.limit_per_class, args.classes, seed
         )  # fmt: skip
         for name in ["train", "val"]
     }
@@ -133,7 +137,7 @@ def main(argv: list[str] | None = None) -> dict:
             shuffle=name == "train",
             num_workers=num_workers,
             pin_memory=device.type == "cuda",
-            generator=torch.Generator().manual_seed(cfg["seed"]),
+            generator=torch.Generator().manual_seed(seed),
         )
         for name in ["train", "val"]
     }
@@ -172,6 +176,7 @@ def main(argv: list[str] | None = None) -> dict:
         "val_images": len(rows["val"]),
         "pretrained": not args.no_pretrained,
         "classes": ",".join(classes),
+        "seed": seed,
     }
 
     history, best, stale = [], None, 0

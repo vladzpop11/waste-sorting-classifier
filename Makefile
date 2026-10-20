@@ -3,7 +3,7 @@ NAME  ?= waste-sorting-classifier
 PORT  ?= 8000
 
 .PHONY: help setup format lint test check data split baseline smoke-train train export \
-        evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors demo-local check-web
+        select evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors demo-local check-web
 
 help:  ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -40,10 +40,11 @@ smoke-train:  ## One epoch on 2 classes x 25 images on the CPU, to catch errors 
 train:  ## Full training (meant for a GPU; see kaggle/train.ipynb)
 	uv run python -m waste_sorting_classifier.train --output-dir artifacts/run
 
-CHECKPOINT ?= artifacts/kaggle-2026-10-20/run/efficientnet_b0/model.pt
+select:  ## Apply the selection rule (configs/config.yaml) to the downloaded Kaggle runs
+	uv run python -m waste_sorting_classifier.select
 
-export:  ## Export CHECKPOINT to models/model.onnx, checked against PyTorch on real photos
-	uv run python -m waste_sorting_classifier.export $(CHECKPOINT)
+export:  ## Export the selected checkpoint to models/model.onnx, checked against PyTorch on real photos
+	uv run python -m waste_sorting_classifier.export
 
 evaluate:  ## One-time test evaluation of the exported model (refuses to run again unless FORCE=1)
 	uv run python -m waste_sorting_classifier.evaluate

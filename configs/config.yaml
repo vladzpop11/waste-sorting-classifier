@@ -42,3 +42,14 @@ train:
 # it and checks it against the SHA-256 in models/model.json.
 release:
   model_url: https://github.com/vladzpop11/waste-sorting-classifier/releases/download/model-v1/model.onnx
+
+# Model selection, fixed before training version 2 (2026-10-20). Every architecture is
+# trained once per seed on Kaggle. The architecture with the higher mean validation macro F1
+# wins; if the means are within `margin`, the faster one wins. The deployed checkpoint is
+# the winning architecture's run with the lowest validation loss. select.py applies this.
+selection:
+  archs: [resnet18, efficientnet_b0]
+  seeds: [42, 43, 44]
+  margin: 0.01
+  faster: efficientnet_b0
+  runs_dir: artifacts/kaggle-v2/run

@@ -9,6 +9,7 @@ hashes, the equivalence result), which is all the API and the demo need.
 
 import argparse
 import inspect
+import json
 from pathlib import Path
 
 import numpy as np
@@ -66,12 +67,23 @@ def compare(model: torch.nn.Module, onnx_path: Path, batch: np.ndarray) -> dict:
 
 def main(argv: list[str] | None = None) -> dict:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("checkpoint", type=Path, help="model.pt from a training run")
+    p.add_argument("checkpoint", type=Path, nargs="?", default=None,
+                   help="model.pt from a training run (default: the one chosen in "
+                        "reports/model_selection.json, SHA-256 checked)")  # fmt: skip
     p.add_argument("--out-dir", type=Path, default=None)
     p.add_argument("--images-dir", type=Path, default=None)
     args = p.parse_args(argv)
 
     cfg = load_config()
+    if args.checkpoint is None:
+        selection = json.loads(
+            (project_path(cfg["paths"]["reports_dir"]) / "model_selection.json").read_text()
+        )
+        args.checkpoint = project_path(selection["chosen_checkpoint"])
+        if not args.checkpoint.exists():
+            raise SystemExit(f"{args.checkpoint} is missing: download the training run first")
+        if sha256(args.checkpoint) != selection["chosen_checkpoint_sha256"]:
+            raise SystemExit(f"{args.checkpoint} is not the checkpoint model_selection.json chose")
     out = args.out_dir or project_path(cfg["paths"]["models_dir"])
     out.mkdir(parents=True, exist_ok=True)
     images_dir = args.images_dir or project_path(cfg["data"]["raw_dir"]) / "images"
