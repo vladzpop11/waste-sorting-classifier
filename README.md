@@ -93,10 +93,10 @@ Test accuracy (95.6%) and macro F1 (0.945) match validation (95.6%, 0.946).
 The 16 validation errors ([reports/val_errors.json](reports/val_errors.json)) fall into three groups:
 
 - **Printed cardboard and paper,** in both directions (5 errors): boxes with printed photos, flattened flaps.
-- **Shiny surfaces read as metal** (7 errors): green glass bottles, a foil wrapper filed as trash, a bubble mailer and a plastic lid.
+- **Shiny surfaces read as metal** (6 errors): green glass bottles, a foil wrapper filed as trash, a bubble mailer and a plastic lid.
 - **Trash,** the smallest and most mixed class, with 4 of 20 validation photos wrong.
 
-Most errors are uncertain (11 of 16 below 63% confidence), but some are not: the plastic lid is called metal at 92%.
+Most errors are uncertain (10 of 16 below 63% confidence), but some are not: the plastic lid is called metal at 92%.
 
 ## Platform notes
 
