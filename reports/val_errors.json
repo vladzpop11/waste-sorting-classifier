@@ -1,0 +1,114 @@
+{
+  "errors": 16,
+  "images": 360,
+  "accuracy": 0.9555555555555556,
+  "pairs": {
+    "cardboard -> paper": 3,
+    "glass -> metal": 2,
+    "paper -> cardboard": 2,
+    "plastic -> metal": 2,
+    "trash -> metal": 2,
+    "trash -> plastic": 2,
+    "metal -> cardboard": 1,
+    "metal -> plastic": 1,
+    "plastic -> glass": 1
+  },
+  "photos": [
+    {
+      "path": "plastic/plastic307.jpg",
+      "label": "plastic",
+      "predicted": "metal",
+      "confidence": 0.92
+    },
+    {
+      "path": "glass/glass307.jpg",
+      "label": "glass",
+      "predicted": "metal",
+      "confidence": 0.7754
+    },
+    {
+      "path": "paper/paper328.jpg",
+      "label": "paper",
+      "predicted": "cardboard",
+      "confidence": 0.7638
+    },
+    {
+      "path": "cardboard/cardboard242.jpg",
+      "label": "cardboard",
+      "predicted": "paper",
+      "confidence": 0.762
+    },
+    {
+      "path": "glass/glass100.jpg",
+      "label": "glass",
+      "predicted": "metal",
+      "confidence": 0.6921
+    },
+    {
+      "path": "trash/trash126.jpg",
+      "label": "trash",
+      "predicted": "metal",
+      "confidence": 0.6691
+    },
+    {
+      "path": "cardboard/cardboard41.jpg",
+      "label": "cardboard",
+      "predicted": "paper",
+      "confidence": 0.62
+    },
+    {
+      "path": "trash/trash121.jpg",
+      "label": "trash",
+      "predicted": "plastic",
+      "confidence": 0.5463
+    },
+    {
+      "path": "plastic/plastic303.jpg",
+      "label": "plastic",
+      "predicted": "glass",
+      "confidence": 0.5342
+    },
+    {
+      "path": "metal/metal234.jpg",
+      "label": "metal",
+      "predicted": "cardboard",
+      "confidence": 0.5242
+    },
+    {
+      "path": "cardboard/cardboard279.jpg",
+      "label": "cardboard",
+      "predicted": "paper",
+      "confidence": 0.4854
+    },
+    {
+      "path": "paper/paper80.jpg",
+      "label": "paper",
+      "predicted": "cardboard",
+      "confidence": 0.4652
+    },
+    {
+      "path": "trash/trash93.jpg",
+      "label": "trash",
+      "predicted": "metal",
+      "confidence": 0.4249
+    },
+    {
+      "path": "trash/trash120.jpg",
+      "label": "trash",
+      "predicted": "plastic",
+      "confidence": 0.4078
+    },
+    {
+      "path": "metal/metal402.jpg",
+      "label": "metal",
+      "predicted": "plastic",
+      "confidence": 0.4019
+    },
+    {
+      "path": "plastic/plastic455.jpg",
+      "label": "plastic",
+      "predicted": "metal",
+      "confidence": 0.3744
+    }
+  ]
+}

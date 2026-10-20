@@ -3,7 +3,7 @@ NAME  ?= waste-sorting-classifier
 PORT  ?= 8000
 
 .PHONY: help setup format lint test check data split baseline smoke-train train export \
-        evaluate serve docker-build docker-run docker-stop docker-smoke
+        evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors
 
 help:  ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ export:  ## Export CHECKPOINT to models/model.onnx, checked against PyTorch on r
 evaluate:  ## One-time test evaluation of the exported model (refuses to run again unless FORCE=1)
 	uv run python -m waste_sorting_classifier.evaluate
 
+fetch-model:  ## Download the evaluated ONNX model from the GitHub release (SHA-256 checked)
+	uv run python -m waste_sorting_classifier.fetch_model
+
 serve:  ## Run the API locally without Docker
 	uv run uvicorn waste_sorting_classifier.api:app --host 127.0.0.1 --port $(PORT)
 
@@ -68,3 +71,9 @@ docker-smoke: docker-run  ## Start the container, check /health and /predict on 
 	curl -sf -X POST localhost:$(PORT)/predict -F file=@tests/example.jpg
 	@echo
 	docker stop $(NAME)
+
+latency:  ## Measure /predict latency against the running API (writes reports/latency.json)
+	uv run python -m waste_sorting_classifier.latency http://localhost:$(PORT)
+
+errors:  ## Validation error gallery of the exported model (reports/figures/val_errors.png)
+	uv run python -m waste_sorting_classifier.errors

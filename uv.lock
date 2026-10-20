@@ -1801,7 +1801,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-demo = [{ name = "gradio", specifier = ">=5" }]
+demo = [{ name = "gradio", specifier = "==6.30.0" }]
 dev = [
     { name = "httpx2", specifier = ">=2.13.1" },
     { name = "pre-commit", specifier = ">=4.7.0" },

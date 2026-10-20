@@ -43,7 +43,9 @@ train = [
     "sqlalchemy>=2",
     "alembic>=1.13",
 ]
-demo = ["gradio>=5"]
+demo = [
+    "gradio==6.30.0",
+]
 dev = ["httpx2>=2.13.1", "pre-commit>=4.7.0", "pytest>=9.1.1", "ruff>=0.17.1"]
 
 [tool.uv]

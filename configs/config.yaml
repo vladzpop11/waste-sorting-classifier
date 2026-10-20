@@ -36,3 +36,8 @@ train:
   # processes kept the interpreter from exiting after training (observed, 2026-10-20), and
   # on CPU the model, not image loading, is the bottleneck.
   num_workers: auto
+
+# The evaluated ONNX model, published as a GitHub release asset; make fetch-model downloads
+# it and checks it against the SHA-256 in models/model.json.
+release:
+  model_url: https://github.com/vladzpop11/waste-sorting-classifier/releases/download/model-v1/model.onnx

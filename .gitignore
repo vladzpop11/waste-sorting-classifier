@@ -27,3 +27,6 @@ reports/*
 !reports/*.json
 !reports/figures/
 !reports/history/
+
+# bundled into the Hugging Face Space at upload time
+space/model.onnx
