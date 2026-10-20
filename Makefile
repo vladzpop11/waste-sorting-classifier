@@ -85,6 +85,7 @@ demo-local:  ## The Gradio demo on localhost (needs make fetch-model)
 	uv run --group demo python demo/gradio_app.py
 
 WEB_TEST := .cache/web-test
+CHROME ?= /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 # tests/example.jpg is plastic1.jpg, a training photo: docker-smoke expects this label.
 SMOKE_LABEL := plastic
 
@@ -103,4 +104,4 @@ check-web: web  ## Browser pipeline vs Python: validation photos and edge cases 
 	cp -R $(WEB_SITE) models/model.onnx $(WEB_TEST)/site/
 	cd $(WEB_TEST)/site && (python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 & echo $$! > ../server.pid)
 	sleep 1; NODE_PATH=$(WEB_TEST)/node_modules node web/check_page.cjs http://127.0.0.1:8765/ \
-	  $(WEB_TEST)/fixtures data/raw/images $(WEB_TEST)/shots; status=$$?; kill $$(cat $(WEB_TEST)/server.pid); exit $$status
+	  $(WEB_TEST)/fixtures data/raw/images $(WEB_TEST)/shots "$(CHROME)"; status=$$?; kill $$(cat $(WEB_TEST)/server.pid); exit $$status

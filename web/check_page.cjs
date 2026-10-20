@@ -18,7 +18,9 @@ const PROBABILITY_TOLERANCE = 1e-4; // JPEG decoders may differ slightly; lossle
 (async () => {
   const browser = await puppeteer.launch({
     executablePath: process.argv[6] || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    headless: true, args: ["--no-first-run"],
+    headless: true,
+    // GitHub's Ubuntu runners do not allow Chrome's sandbox.
+    args: ["--no-first-run", ...(process.env.CI ? ["--no-sandbox"] : [])],
   });
   const page = await browser.newPage();
   const problems = [];

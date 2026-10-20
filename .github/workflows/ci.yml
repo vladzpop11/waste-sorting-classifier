@@ -52,6 +52,10 @@ jobs:
       # check that it serves.
       - run: make fetch-model
 
+      # The browser demo against the Python pipeline, in the runner's Chrome: every
+      # validation photo and 40 unusual uploads must give the same result as Python.
+      - run: make check-web CHROME=/usr/bin/google-chrome
+
       - run: make docker-build
 
       - run: make docker-smoke
