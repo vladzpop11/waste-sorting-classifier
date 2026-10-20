@@ -37,11 +37,20 @@ make baseline        # the table above
 make smoke-train     # one CPU epoch on a small subset, to catch errors cheaply
 ```
 
-Full training runs on a GPU: [kaggle/train.ipynb](kaggle/train.ipynb) clones this repository and runs the same `train` module.
+Full training runs on a GPU: [kaggle/train.ipynb](kaggle/train.ipynb) clones this repository and runs the same `train` module for two candidate architectures (ResNet18 and EfficientNet-B0).
+
+- **Choosing between them, on validation only:** the higher macro F1 wins; within 0.01, the faster model wins.
+- **Browsing a run's MLflow records** (no extra install):
+
+  ```bash
+  uvx --from mlflow==3.17.1 mlflow server --backend-store-uri sqlite:///artifacts/run/resnet18/mlflow.db --port 5000
+  ```
 
 ## Platform notes
 
 - **Intel Macs** stop at PyTorch 2.2.2 (which needs NumPy 1.x) and ONNX Runtime 1.23.2, so the project pins those there and supports Python 3.12 only. Everywhere else gets current versions; Linux uses PyTorch's CPU-only build.
+- **Kaggle runs Python 3.13,** which those Intel-Mac pins exclude, so the notebook runs the code from source (`PYTHONPATH=src`) instead of installing the package. That path is rehearsed on Python 3.13 in Docker.
+- **Models trained on Kaggle are exported to ONNX on the Mac:** a checkpoint saved by PyTorch 2.14 loads into 2.2.2 (tested with `weights_only=True`), and exporting with new PyTorch would need extra packages.
 - **Serving needs no PyTorch:** the model will be served through ONNX Runtime.
 
 ## Security

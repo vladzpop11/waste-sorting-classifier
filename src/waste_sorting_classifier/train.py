@@ -92,6 +92,7 @@ def main(argv: list[str] | None = None) -> dict:
     p.add_argument("--output-dir", type=Path, default=project_path("artifacts/run"))
     p.add_argument("--images-dir", type=Path, default=None)
     p.add_argument("--device", default="auto")
+    p.add_argument("--arch", default=None, help="override train.arch (resnet18, efficientnet_b0)")
     p.add_argument("--epochs", type=int, default=None)
     p.add_argument("--batch-size", type=int, default=None)
     p.add_argument("--num-workers", type=int, default=None)
@@ -102,7 +103,9 @@ def main(argv: list[str] | None = None) -> dict:
     args = p.parse_args(argv)
 
     cfg = load_config()
-    tc = cfg["train"]
+    tc = dict(cfg["train"])
+    if args.arch:
+        tc["arch"] = args.arch
     epochs = args.epochs or tc["epochs"]
     batch_size = args.batch_size or tc["batch_size"]
     seed_everything(cfg["seed"])

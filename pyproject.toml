@@ -39,7 +39,9 @@ train = [
     "scikit-learn>=1.9",
     "matplotlib>=3.11",
     "pandas>=2.2",
-    "mlflow>=3",
+    "mlflow-skinny>=3",
+    "sqlalchemy>=2",
+    "alembic>=1.13",
 ]
 demo = ["gradio>=5"]
 dev = ["httpx2>=2.13.1", "pre-commit>=4.7.0", "pytest>=9.1.1", "ruff>=0.17.1"]
