@@ -104,6 +104,7 @@ function showResult(probabilities, score) {
     result.append(
       paragraph("label unknown", "Not a photo the model knows"),
       paragraph("explain", "It doesn't look like the photos the model was trained on: one waste item on a plain background. Any answer would be a guess."),
+      paragraph("hint", "For a photo it can judge: put one item alone on a plain, light surface, fill most of the frame with it, and take the photo from above. Hands, bins full of things and busy backgrounds are outside what it has learned."),
     );
     const details = document.createElement("details");
     const summary = document.createElement("summary");

@@ -133,6 +133,12 @@ async function openBrowser() {
   if (everyday) {
     await upload(path.join(fixtures, "edge", everyday.name));
     await page.screenshot({ path: path.join(shots, "unfamiliar.png"), fullPage: true });
+    // The next photo gets its own answer: a familiar one right after must be labelled.
+    const next = images.find((im) => im.similarity >= threshold + 0.05);
+    const after = await upload(path.join(imagesDir, next.path));
+    if (after.familiar !== true || after.label !== classes[argmax(next.logits)]) {
+      failures.push(`after an unfamiliar photo, ${next.path} -> ${JSON.stringify(after).slice(0, 80)}`);
+    }
   }
 
   // 3. Examples, the same file twice, screenshots.
