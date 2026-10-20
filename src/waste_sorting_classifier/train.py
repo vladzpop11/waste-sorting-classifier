@@ -68,6 +68,17 @@ def evaluate(model, loader, device, loss_fn) -> tuple[float, np.ndarray, np.ndar
     return total / len(logits), logits.softmax(1).numpy(), torch.cat(targets_all).numpy()
 
 
+def per_source(sources: np.ndarray, targets: np.ndarray, pred: np.ndarray) -> dict:
+    """Validation accuracy and macro F1 for each data source (val_macro_f1_<source>)."""
+    out = {}
+    for source in np.unique(sources):
+        m = sources == source
+        out[f"val_accuracy_{source}"] = accuracy_score(targets[m], pred[m])
+        out[f"val_macro_f1_{source}"] = f1_score(targets[m], pred[m], average="macro",
+                                                 zero_division=0)  # fmt: skip
+    return out
+
+
 def main(argv: list[str] | None = None) -> dict:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--output-dir", type=Path, default=project_path("artifacts/run"))
@@ -121,6 +132,12 @@ def main(argv: list[str] | None = None) -> dict:
         for name in ["train", "val"]
     }
 
+    # The validation loader keeps row order, so this lines up with its predictions.
+    sources = (
+        rows["val"]["source"].to_numpy()
+        if "source" in rows["val"]
+        else np.full(len(rows["val"]), "all")
+    )
     model = build_model(tc["arch"], len(classes), pretrained=not args.no_pretrained).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=tc["lr"], weight_decay=tc["weight_decay"])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -185,6 +202,7 @@ def main(argv: list[str] | None = None) -> dict:
                 "val_loss": val_loss,
                 "val_accuracy": accuracy_score(targets, pred),
                 "val_macro_f1": f1_score(targets, pred, average="macro", zero_division=0),
+                **per_source(sources, targets, pred),
                 "seconds": time.perf_counter() - start,
             }
             history.append(row)
@@ -210,6 +228,7 @@ def main(argv: list[str] | None = None) -> dict:
             "val_loss": best["val_loss"],
             "val_accuracy": best["val_accuracy"],
             "val_macro_f1": best["val_macro_f1"],
+            **{k: v for k, v in best.items() if k.startswith(("val_macro_f1_", "val_accuracy_"))},
             "val_confusion": best["confusion"],
             "classes": classes,
             "params": params,

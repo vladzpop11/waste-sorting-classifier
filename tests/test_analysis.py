@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 
 def test_selection_rule() -> None:
@@ -79,3 +80,12 @@ def test_low_confidence_threshold_is_none_when_no_threshold_meets_the_target() -
     flag = low_confidence_threshold(np.array([0.6, 0.7, 0.96, 0.97, 0.98]),
                                     np.array([True, True, False, True, True]))  # fmt: skip
     assert flag["threshold"] is None
+
+
+def test_version_4_score_counts_each_source_equally() -> None:
+    from waste_sorting_classifier.select import score
+
+    metrics = {"val_macro_f1": 0.90, "val_macro_f1_trashnet": 0.96, "val_macro_f1_realwaste": 0.80}
+    rule = {"score": "mean_over_sources", "sources": ["trashnet", "realwaste"]}
+    assert score(metrics, rule) == pytest.approx(0.88)
+    assert score(metrics, {}) == 0.90  # version 2's rule: plain macro F1

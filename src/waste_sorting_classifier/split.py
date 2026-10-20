@@ -70,6 +70,21 @@ def group_similar(embeddings: np.ndarray, labels: np.ndarray, threshold: float) 
     return groups
 
 
+def split_embeddings(cfg: dict, split: pd.DataFrame) -> np.ndarray:
+    """The embeddings `make split` saved, one row per row of `split` (matched by path:
+    embeddings.npy follows data/processed/images.csv, which can hold left-out photos)."""
+    processed = project_path(cfg["data"]["processed_dir"])
+    index = pd.read_csv(processed / "images.csv")
+    embeddings = np.load(processed / "embeddings.npy")
+    if len(embeddings) != len(index):
+        raise SystemExit("embeddings.npy does not match images.csv: run `make split` first")
+    row = pd.Series(np.arange(len(index)), index=index["path"])
+    missing = set(split["path"]) - set(row.index)
+    if missing:
+        raise SystemExit(f"{len(missing)} split photos have no embedding: run `make split` first")
+    return embeddings[row.loc[split["path"]].to_numpy()]
+
+
 def max_cross_split_similarity(
     embeddings: np.ndarray, labels: np.ndarray, split: np.ndarray
 ) -> dict[str, float]:
@@ -111,25 +126,84 @@ def load_split(
     return split
 
 
+def place_realwaste(
+    index: pd.DataFrame, embeddings: np.ndarray, frozen: pd.DataFrame, cfg: dict
+) -> tuple[pd.DataFrame, list[str]]:
+    """Version 4: TrashNet rows keep their frozen version 2 group and split. RealWaste rows
+    are grouped among themselves like TrashNet was. A RealWaste group with a photo at or
+    above the threshold to a TrashNet photo follows that photo's split; one tied to TrashNet
+    photos in different splits goes to train, and its photos tied to validation or test
+    photos are left out (they would be near-duplicates across the split). The other groups
+    are assigned with StratifiedGroupKFold, except groups larger than chains_to_train_above
+    (look-alike chains), which go to train. -> (rows kept, with group and split columns and
+    their images.csv index; the left-out paths)."""
+    threshold = cfg["split"]["similarity_threshold"]
+    labels = index["label"].to_numpy()
+    tn = (index["source"] == "trashnet").to_numpy()
+    out = index.copy()
+    fixed = frozen.set_index("path").loc[index.loc[tn, "path"]]
+    out.loc[tn, "group"] = fixed["group"].to_numpy()
+    out.loc[tn, "split"] = fixed["split"].to_numpy()
+
+    rw = np.flatnonzero(~tn)
+    groups = group_similar(embeddings[rw], labels[rw], threshold)
+    out.loc[rw, "group"] = [f"realwaste-{g}" for g in groups]
+
+    forced: dict[str, set[str]] = {}  # group -> TrashNet splits it is tied to
+    tied: dict[int, set[str]] = {}  # photo -> TrashNet splits it is tied to
+    for label in np.unique(labels):
+        r = np.flatnonzero(~tn & (labels == label))
+        t = np.flatnonzero(tn & (labels == label))
+        sims = embeddings[r] @ embeddings[t].T
+        for i, row in zip(r, sims, strict=True):
+            for j in t[row >= threshold]:
+                forced.setdefault(out.at[i, "group"], set()).add(out.at[j, "split"])
+                tied.setdefault(i, set()).add(out.at[j, "split"])
+    left_out = [
+        i for i, splits in tied.items()
+        if len(forced[out.at[i, "group"]]) > 1 and splits != {"train"}
+    ]  # fmt: skip
+    forced = {g: ({"train"} if len(s) > 1 else s) for g, s in forced.items()}
+    sizes = out.loc[rw, "group"].value_counts()
+    for group in sizes[sizes > cfg["split"]["chains_to_train_above"]].index:
+        forced.setdefault(group, {"train"})  # look-alike chains train the model
+    dropped = out.loc[left_out, "path"].tolist()
+    out = out.drop(index=left_out)
+
+    free = (out["source"] == "realwaste") & ~out["group"].isin(forced)
+    out.loc[free, "split"] = assign_splits(
+        out.loc[free, "label"].to_numpy(), out.loc[free, "group"].to_numpy(),
+        cfg["split"]["n_folds"], cfg["seed"],
+    )  # fmt: skip
+    for group, splits in forced.items():
+        out.loc[out["group"] == group, "split"] = next(iter(splits))
+    return out, dropped
+
+
 def main() -> None:
     cfg = load_config()
     index = pd.read_csv(project_path(cfg["data"]["processed_dir"]) / "images.csv")
     images_dir = project_path(cfg["data"]["raw_dir"]) / "images"
-    labels = index["label"].to_numpy()
     threshold = cfg["split"]["similarity_threshold"]
 
-    embeddings = embed(index["path"].tolist(), images_dir)
-    np.save(project_path(cfg["data"]["processed_dir"]) / "embeddings.npy", embeddings)
+    saved = project_path(cfg["data"]["processed_dir"]) / "embeddings.npy"
+    if "--reuse-embeddings" in sys.argv[1:] and saved.exists():  # during development only
+        embeddings = np.load(saved)
+    else:
+        embeddings = embed(index["path"].tolist(), images_dir)
+        np.save(saved, embeddings)
     if "--embeddings-only" in sys.argv[1:]:  # for checking the committed split (CI)
         print(f"{len(embeddings)} embeddings saved")
         return
-    groups = group_similar(embeddings, labels, threshold)
-    split = assign_splits(labels, groups, cfg["split"]["n_folds"], cfg["seed"])
-    worst = max_cross_split_similarity(embeddings, labels, split)
+    frozen = pd.read_csv(project_path(cfg["split"]["trashnet_v2"]))
+    placed, left_out = place_realwaste(index, embeddings, frozen, cfg)
+    kept = placed.index.to_numpy()  # their rows in images.csv and embeddings.npy
+    split = placed["split"].to_numpy()
+    worst = max_cross_split_similarity(embeddings[kept], placed["label"].to_numpy(), split)
     if max(worst.values()) >= threshold:
         raise SystemExit(f"a cross-split pair reaches cosine {worst}; refusing to save")
 
-    out = index[["path", "label", "sha256"]].assign(group=groups, split=split)
+    out = placed[["path", "label", "sha256", "group", "split", "source"]]
     path = project_path(cfg["split"]["file"])
     path.parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(path, index=False)
@@ -141,12 +215,16 @@ def main() -> None:
         "photos_in_multi_photo_groups": int(sizes[sizes > 1].sum()),
         "largest_group": int(sizes.max()),
         "split_sizes": out["split"].value_counts().to_dict(),
+        "split_sizes_by_source": {
+            src: rows["split"].value_counts().to_dict() for src, rows in out.groupby("source")
+        },
+        "left_out": left_out,
         "max_same_class_similarity_to_train": worst,
         "split_sha256": sha256(path),
     }
     write_json(project_path(cfg["paths"]["reports_dir"]) / "split_stats.json", stats)
     print(json.dumps(stats, indent=2))
-    print(pd.crosstab(out["label"], out["split"], margins=True).to_string())
+    print(pd.crosstab([out["source"], out["label"]], out["split"], margins=True).to_string())
 
 
 if __name__ == "__main__":

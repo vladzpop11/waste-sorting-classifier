@@ -1,17 +1,32 @@
 {
   "threshold": 0.86,
-  "images": 2521,
-  "groups": 1857,
-  "photos_in_multi_photo_groups": 835,
-  "largest_group": 77,
+  "images": 6425,
+  "groups": 3935,
+  "photos_in_multi_photo_groups": 2980,
+  "largest_group": 263,
   "split_sizes": {
-    "train": 1795,
-    "test": 366,
-    "val": 360
+    "train": 4904,
+    "test": 763,
+    "val": 758
   },
+  "split_sizes_by_source": {
+    "realwaste": {
+      "train": 3109,
+      "val": 398,
+      "test": 397
+    },
+    "trashnet": {
+      "train": 1795,
+      "test": 366,
+      "val": 360
+    }
+  },
+  "left_out": [
+    "realwaste/metal/Metal_582.jpg"
+  ],
   "max_same_class_similarity_to_train": {
     "val": 0.8599021434783936,
     "test": 0.8595743179321289
   },
-  "split_sha256": "95ba7bd24bbe219e8dbc19f8f6939fed1a97e7887989276d93daf3a4fcbb943d"
+  "split_sha256": "4eb01a87332bcfb9112649d9f5fdf3e942643c7c15c30caee154b7cc1fda6f22"
 }

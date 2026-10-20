@@ -35,19 +35,15 @@ from waste_sorting_classifier.config import load_config, project_path
 from waste_sorting_classifier.metrics import bootstrap_intervals, reliability
 from waste_sorting_classifier.onnx_model import OnnxClassifier
 from waste_sorting_classifier.plots import save_confusion, save_reliability
-from waste_sorting_classifier.split import load_split
+from waste_sorting_classifier.split import load_split, split_embeddings
 
 SIMILARITY_BANDS = [0.0, 0.75, 0.80, 0.85]  # then up to the split threshold (0.86)
 
 
 def nearest_train_similarity(cfg: dict, split: pd.DataFrame, part: str) -> pd.Series:
     """For each photo of `part`: the highest same-class cosine similarity to a training photo,
-    from the embeddings `make split` saved (rows in data/processed/images.csv order)."""
-    processed = project_path(cfg["data"]["processed_dir"])
-    index = pd.read_csv(processed / "images.csv")
-    embeddings = np.load(processed / "embeddings.npy")
-    if len(embeddings) != len(index) or not index["path"].equals(split["path"]):
-        raise SystemExit("embeddings.npy does not match the split: run `make split` first")
+    from the embeddings `make split` saved."""
+    embeddings = split_embeddings(cfg, split)
     labels, parts = split["label"].to_numpy(), split["split"].to_numpy()
     test, train = np.flatnonzero(parts == part), np.flatnonzero(parts == "train")
     sims = embeddings[test] @ embeddings[train].T

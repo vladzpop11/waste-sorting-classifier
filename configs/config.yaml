@@ -9,6 +9,27 @@ data:
   classes: [cardboard, glass, metal, paper, plastic, trash]
   expected_counts: {cardboard: 403, glass: 501, metal: 410, paper: 594, plastic: 482, trash: 137}
 
+# Version 4 adds RealWaste (Single, Iranmanesh & Raad, 2023): real waste photographed at a
+# landfill's reception point, 524x524. UCI lists it as CC BY 4.0, the authors' README as
+# CC BY-NC-SA 4.0; the stricter licence is followed (README, Licence). Its images go under
+# data/raw/images/realwaste/<our class>/. Mapping to our six classes: miscellaneous and
+# textile trash -> trash; food organics and vegetation are not used.
+realwaste:
+  url: https://archive.ics.uci.edu/static/public/908/realwaste.zip
+  sha256: 1ede08b32358ee62065bcc1c8cb47a2ece04e8dff5b1fb53342bb8750895b2f3
+  folder: realwaste
+  classes:
+    Cardboard: cardboard
+    Glass: glass
+    Metal: metal
+    Paper: paper
+    Plastic: plastic
+    Miscellaneous Trash: trash
+    Textile Trash: trash
+  expected_counts: {Cardboard: 461, Food Organics: 411, Glass: 420, Metal: 790,
+                    Miscellaneous Trash: 495, Paper: 500, Plastic: 921, Textile Trash: 318,
+                    Vegetation: 436}
+
 paths:
   models_dir: models
   reports_dir: reports
@@ -24,6 +45,14 @@ split:
   # StratifiedGroupKFold: one fold is the test set, one the validation set, the rest train.
   n_folds: 7
   file: splits/split.csv
+  # Version 4: TrashNet keeps its version 2 split exactly (frozen in this file), so that
+  # its test photos are never trained on and versions can be compared on them; only the
+  # RealWaste photos are split anew (split.py).
+  trashnet_v2: splits/trashnet-v2.csv
+  # RealWaste groups larger than this (chains of look-alike photos, up to 263) go to
+  # training, so that its validation and test sets are made of many independent objects
+  # (fixed before training: README, Data).
+  chains_to_train_above: 20
 
 train:
   arch: resnet18          # ImageNet-pretrained torchvision model, new 6-class head
@@ -57,13 +86,17 @@ familiarity:
 release:
   base_url: https://github.com/vladzpop11/waste-sorting-classifier/releases/download/model-v3/
 
-# Model selection, fixed before training version 2 (2026-10-20). Every architecture is
-# trained once per seed on Kaggle. The architecture with the higher mean validation macro F1
-# wins; if the means are within `margin`, the faster one wins. The deployed checkpoint is
-# the winning architecture's run with the lowest validation loss. select.py applies this.
+# Model selection, fixed before training (version 2: 2026-10-20; version 4: 2026-10-20,
+# before its Kaggle run). Every architecture is trained once per seed on Kaggle. The
+# architecture with the higher mean validation score wins; if the means are within
+# `margin`, the faster one wins. The deployed checkpoint is the winning architecture's run
+# with the lowest validation loss. select.py applies this. Version 4's score is the mean of
+# the per-source validation macro F1 (TrashNet and RealWaste count equally).
 selection:
   archs: [resnet18, efficientnet_b0]
   seeds: [42, 43, 44]
   margin: 0.01
   faster: efficientnet_b0
-  runs_dir: artifacts/kaggle-v2/run
+  score: mean_over_sources
+  sources: [trashnet, realwaste]
+  runs_dir: artifacts/kaggle-v4/run

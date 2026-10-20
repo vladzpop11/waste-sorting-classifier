@@ -22,6 +22,14 @@ def decide(means: dict[str, float], margin: float, faster: str) -> str:
     return best
 
 
+def score(metrics: dict, rule: dict) -> float:
+    """The validation score the rule compares: macro F1, or (version 4) its mean over the
+    data sources, so that each source counts equally."""
+    if rule.get("score") == "mean_over_sources":
+        return statistics.mean(metrics[f"val_macro_f1_{s}"] for s in rule["sources"])
+    return metrics["val_macro_f1"]
+
+
 def main() -> None:
     cfg = load_config()
     rule = cfg["selection"]
@@ -40,19 +48,21 @@ def main() -> None:
                 "val_loss": m["val_loss"],
                 "val_accuracy": m["val_accuracy"],
                 "val_macro_f1": m["val_macro_f1"],
+                **{k: v for k, v in m.items() if k.startswith(("val_macro_f1_", "val_accuracy_"))},
+                "score": score(m, rule),
                 "checkpoint_sha256": sha256(run / "model.pt"),
                 "versions": m["versions"],
             }
     per_arch = {}
     for arch in rule["archs"]:
-        f1 = [r["val_macro_f1"] for r in runs.values() if r["arch"] == arch]
+        f1 = [r["score"] for r in runs.values() if r["arch"] == arch]
         acc = [r["val_accuracy"] for r in runs.values() if r["arch"] == arch]
         per_arch[arch] = {
-            "mean_val_macro_f1": statistics.mean(f1),
-            "sd_val_macro_f1": statistics.stdev(f1) if len(f1) > 1 else 0.0,
+            "mean_score": statistics.mean(f1),
+            "sd_score": statistics.stdev(f1) if len(f1) > 1 else 0.0,
             "mean_val_accuracy": statistics.mean(acc),
         }
-    means = {a: v["mean_val_macro_f1"] for a, v in per_arch.items()}
+    means = {a: v["mean_score"] for a, v in per_arch.items()}
     chosen_arch = decide(means, rule["margin"], rule["faster"])
     chosen = min(
         (k for k, r in runs.items() if r["arch"] == chosen_arch), key=lambda k: runs[k]["val_loss"]
@@ -74,8 +84,8 @@ def main() -> None:
     }
     write_json(project_path(cfg["paths"]["reports_dir"]) / "model_selection.json", record)
     for arch, v in per_arch.items():
-        f1, sd, acc = v["mean_val_macro_f1"], v["sd_val_macro_f1"], v["mean_val_accuracy"]
-        print(f"{arch:16s} mean val macro F1 {f1:.4f} (sd {sd:.4f}), mean accuracy {acc:.4f}")
+        f1, sd, acc = v["mean_score"], v["sd_score"], v["mean_val_accuracy"]
+        print(f"{arch:16s} mean validation score {f1:.4f} (sd {sd:.4f}), mean accuracy {acc:.4f}")
     print(f"chosen: {chosen_arch}, run {chosen} (val loss {runs[chosen]['val_loss']:.4f})")
 
 

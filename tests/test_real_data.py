@@ -2,11 +2,10 @@
 
 import json
 
-import numpy as np
 import pytest
 
 from waste_sorting_classifier.config import load_config, project_path
-from waste_sorting_classifier.split import load_split, max_cross_split_similarity
+from waste_sorting_classifier.split import load_split, max_cross_split_similarity, split_embeddings
 
 CFG = load_config()
 IMAGES = project_path(CFG["data"]["raw_dir"]) / "images"
@@ -17,7 +16,10 @@ pytestmark = pytest.mark.skipif(not IMAGES.exists(), reason="data not downloaded
 
 def test_committed_split_matches_the_images_and_its_recorded_stats() -> None:
     split = load_split(CFG)  # raises if any image differs from its recorded SHA-256
-    assert len(split) == STATS["images"] == 2521
+    assert len(split) == STATS["images"]
+    assert split["source"].value_counts().to_dict() == {
+        s: sum(v.values()) for s, v in STATS["split_sizes_by_source"].items()
+    }
     assert (split.groupby("group")["split"].nunique() == 1).all()
     assert split["split"].value_counts().to_dict() == STATS["split_sizes"]
     assert split["group"].nunique() == STATS["groups"]
@@ -29,7 +31,7 @@ def test_no_similar_pair_straddles_the_split() -> None:
         pytest.skip("embeddings are written by make split")
     split = load_split(CFG, verify=False)
     worst = max_cross_split_similarity(
-        np.load(embeddings), split["label"].to_numpy(), split["split"].to_numpy()
+        split_embeddings(CFG, split), split["label"].to_numpy(), split["split"].to_numpy()
     )
     assert max(worst.values()) < CFG["split"]["similarity_threshold"]
 
@@ -59,3 +61,14 @@ def test_demo_examples_are_validation_photos() -> None:
     for example in sorted(project_path("web/examples").glob("*.jpg")):
         row = split.loc[sha256(example)]
         assert (row["split"], row["label"]) == ("val", example.stem), example.name
+
+
+def test_trashnet_keeps_its_version_2_split() -> None:
+    import pandas as pd
+
+    frozen = pd.read_csv(project_path(CFG["split"]["trashnet_v2"])).set_index("path")
+    split = load_split(CFG, verify=False)
+    trashnet = split[split["source"] == "trashnet"].set_index("path")
+    assert len(trashnet) == len(frozen) == 2521
+    assert (trashnet["split"] == frozen.loc[trashnet.index, "split"]).all()
+    assert (trashnet["group"] == frozen.loc[trashnet.index, "group"]).all()
