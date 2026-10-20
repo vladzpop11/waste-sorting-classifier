@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      UV_LOCKED: "1"  # every uv command must match uv.lock exactly
+    steps:
+      # Actions are pinned by commit SHA; Dependabot keeps them current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          version: "0.13.1"
+          enable-cache: true
+
+      - run: uv sync
+
+      # Audit what is installed here (Linux). The Intel-Mac-only PyTorch 2.2.2 pin has known
+      # advisories with no fix for that platform; see README, Security.
+      - name: Audit installed dependencies for known vulnerabilities
+        run: |
+          # PyTorch's CPU wheels are versioned like 2.14.1+cpu, which PyPI's advisory data
+          # does not know; audit them as the release they are built from.
+          uv pip freeze --exclude-editable | sed 's/+cpu$//' > "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit==2.10.1 --disable-pip --no-deps -r "$RUNNER_TEMP/requirements.txt"
+
+      # Download TrashNet (SHA-256 and class counts checked) first, so the tests that check
+      # the committed split against the real images also run.
+      - run: make data
+
+      - run: make check
+
+      # One CPU epoch on a small subset: the training code runs end to end on Linux.
+      - run: make smoke-train
