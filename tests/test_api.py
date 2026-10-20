@@ -118,3 +118,54 @@ def test_startup_refuses_a_tampered_model(models_dir, tmp_path, monkeypatch) -> 
     monkeypatch.setenv("MODELS_DIR", str(tmp_path))
     with pytest.raises(ValueError, match="does not match"), TestClient(app):
         pass
+
+
+def png_bytes(size, mode="RGB") -> bytes:
+    buf = io.BytesIO()
+    Image.new(mode, size).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("size", [(40000, 1), (1, 1_000_000), (5000, 400)])
+def test_predict_refuses_elongated_images_quickly(client, size) -> None:
+    import time
+
+    start = time.perf_counter()
+    r = upload(client, png_bytes(size, mode="1"), "thin.png", "image/png")
+    assert_error(r, 422)
+    assert "elongated" in r.json()["detail"][0]["msg"]
+    assert time.perf_counter() - start < 2
+
+
+def test_predict_accepts_phone_mpo_jpegs(client) -> None:
+    buf = io.BytesIO()
+    frame = Image.new("RGB", (160, 120), (90, 120, 60))
+    frame.save(buf, format="MPO", save_all=True, append_images=[frame])
+    assert Image.open(io.BytesIO(buf.getvalue())).format == "MPO"
+    assert upload(client, buf.getvalue()).status_code == 200
+
+
+def test_decoder_errors_are_not_echoed(client) -> None:
+    from PIL import PngImagePlugin
+
+    info = PngImagePlugin.PngInfo()
+    info.add_text("comment", "x" * (PngImagePlugin.MAX_TEXT_CHUNK + 10), zip=True)
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 48)).save(buf, format="PNG", pnginfo=info)
+    r = upload(client, buf.getvalue(), "meta.png", "image/png")
+    assert_error(r, 422)
+    assert "MAX_TEXT_CHUNK" not in r.text and "PngImagePlugin" not in r.text
+
+
+def test_predict_answers_busy_when_all_slots_are_taken(client, monkeypatch) -> None:
+    import threading
+
+    from waste_sorting_classifier import api
+
+    monkeypatch.setattr(api, "_slots", threading.BoundedSemaphore(1))
+    monkeypatch.setattr(api, "BUSY_TIMEOUT_SECONDS", 0.05)
+    api._slots.acquire()
+    try:
+        assert_error(upload(client, image_bytes()), 503)
+    finally:
+        api._slots.release()

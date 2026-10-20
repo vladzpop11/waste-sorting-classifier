@@ -2,14 +2,16 @@
 
 Serving uses ONNX Runtime only (no PyTorch). The model is loaded at startup from MODELS_DIR
 (default models/) and refused if model.onnx differs from the SHA-256 in model.json. Uploads
-are limited in size and decoded defensively: only JPEG, PNG and WebP, a cap on pixel count
-(decompression bombs), EXIF orientation applied. Errors always have the shape
+are limited in size and decoded defensively: only JPEG (incl. phone MPO), PNG and WebP;
+pixel-count and aspect-ratio caps checked from the header before decoding; at most two
+images processed at once; EXIF orientation applied. Errors always have the shape
 {"detail": [{"type", "loc", "msg"}]} and never echo the upload.
 """
 
 import io
 import logging
 import os
+import threading
 import warnings
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -27,13 +29,21 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from waste_sorting_classifier import __version__
 from waste_sorting_classifier.config import load_config, project_path
 from waste_sorting_classifier.onnx_model import OnnxClassifier
-from waste_sorting_classifier.preprocess import load_rgb, preprocess
+from waste_sorting_classifier.preprocess import check_size, load_rgb, preprocess
 
 logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-MAX_PIXELS = 40_000_000  # e.g. 8000 x 5000; larger images are refused before decoding
-ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+# MPO is how Pillow reports the multi-frame JPEGs many phone cameras write.
+ALLOWED_FORMATS = {"JPEG", "MPO", "PNG", "WEBP"}
+# Decoding and inference hold a full-size image in memory: at most this many at once.
+MAX_CONCURRENT = 2
+BUSY_TIMEOUT_SECONDS = 30
+_slots = threading.BoundedSemaphore(MAX_CONCURRENT)
+
+
+class ImageRejected(ValueError):
+    """An upload refused with a message that is safe to show the client."""
 
 
 class Prediction(BaseModel):
@@ -94,23 +104,29 @@ class UploadGuard:
 
 
 def decode_image(data: bytes) -> Image.Image:
-    """Open an upload safely; raise ValueError with a client-safe message otherwise."""
+    """Open an upload safely. Size and shape are checked from the header, before decoding.
+
+    Raises ImageRejected with a client-safe message; library errors are logged, not echoed.
+    """
     try:
         with Image.open(io.BytesIO(data)) as probe:
             fmt = probe.format
             width, height = probe.size
-    except (UnidentifiedImageError, OSError) as exc:
-        raise ValueError("the file is not a readable image") from exc
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise ImageRejected("the file is not a readable image") from exc
     if fmt not in ALLOWED_FORMATS:
-        raise ValueError(f"unsupported image format {fmt}; use JPEG, PNG or WebP")
-    if width * height > MAX_PIXELS:
-        raise ValueError(f"image too large: {width}x{height} pixels")
+        raise ImageRejected("unsupported image format; use JPEG, PNG or WebP")
+    try:
+        check_size(width, height)
+    except ValueError as exc:
+        raise ImageRejected(str(exc)) from exc
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             return load_rgb(io.BytesIO(data))
-    except (OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
-        raise ValueError("the image could not be decoded") from exc
+    except Exception as exc:  # any decoder failure: log the detail, show a generic message
+        logger.info("upload could not be decoded: %r", exc)
+        raise ImageRejected("the image could not be decoded") from exc
 
 
 def models_dir() -> Path:
@@ -136,6 +152,12 @@ async def validation_error(request: Request, exc: RequestValidationError) -> JSO
         for e in exc.errors()[:20]
     ]
     return JSONResponse(status_code=422, content={"detail": detail})
+
+
+@app.exception_handler(Exception)
+async def unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("unexpected error")
+    return error(500, "internal_error", "the server could not process the request")
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -167,18 +189,23 @@ def health() -> dict:
     responses={
         413: {"description": f"Upload larger than {MAX_UPLOAD_BYTES // (1024 * 1024)} MB"},
         415: {"description": "Not a multipart/form-data upload"},
-        422: {"description": "Missing file, or not a readable JPEG/PNG/WebP image"},
+        422: {"description": "Missing file; not a readable JPEG/PNG/WebP; too large or elongated"},
+        503: {"description": "Too many images being processed; retry shortly"},
     },
 )
 def predict(
     file: Annotated[UploadFile, File(description="A photo of one waste item")],
 ) -> Prediction:
     model = app.state.model
+    if not _slots.acquire(timeout=BUSY_TIMEOUT_SECONDS):
+        return error(503, "busy", "the server is busy; try again shortly")
     try:
         image = decode_image(file.file.read())
-    except ValueError as exc:
+        proba = model.predict_proba(preprocess(image)[np.newaxis])[0]
+    except ImageRejected as exc:
         return error(422, "invalid_image", str(exc))
-    proba = model.predict_proba(preprocess(image)[np.newaxis])[0]
+    finally:
+        _slots.release()
     return Prediction(
         label=model.classes[int(proba.argmax())],
         probabilities={c: round(float(p), 6) for c, p in zip(model.classes, proba, strict=True)},
