@@ -1,12 +1,12 @@
 {
-  "measured_at": "2026-10-20T13:08:58+00:00",
+  "measured_at": "2026-10-20T18:04:08+00:00",
   "client_machine": "Darwin x86_64",
   "image": "tests/example.jpg (512x384 JPEG)",
   "requests": 50,
-  "mean_ms": 48.552038521156646,
-  "p50_ms": 47.222947992850095,
-  "p95_ms": 63.3188270003302,
-  "max_ms": 64.33137200656347,
+  "mean_ms": 75.7885795988841,
+  "p50_ms": 72.52954249997856,
+  "p95_ms": 97.51095200772397,
+  "max_ms": 123.34472700604238,
   "model": "efficientnet_b0",
-  "onnx_sha256": "e6eccc9d36936c9e6646a5d716507d0a51db62f049070f18719053de5b8bcf10"
+  "onnx_sha256": "155e0de2a39181f0a454bc2833217c70c81a84f5d308e89e9cbafc3724c3f11d"
 }

@@ -68,13 +68,22 @@ async function openBrowser() {
     await page.waitForSelector("#result[data-label], #result[data-error]", { timeout: 30000 });
     return page.$eval("#result", (e) => (e.dataset.error
       ? { error: e.textContent }
-      : { label: e.dataset.label, p: JSON.parse(e.dataset.probabilities) }));
+      : { label: e.dataset.label, p: JSON.parse(e.dataset.probabilities),
+          similarity: Number(e.dataset.similarity), familiar: e.dataset.familiar === "true" }));
   }
   const diff = (got, logits) => Math.max(...softmax(logits).map((q, k) => Math.abs(got.p[classes[k]] - q)));
 
   // 1. Validation photos.
   const { classes, images } = JSON.parse(fs.readFileSync(path.join(fixtures, "index.json"), "utf8"));
-  let same = 0, maxDiff = 0;
+  let same = 0, maxDiff = 0, maxSimilarityDiff = 0;
+  const threshold = JSON.parse(fs.readFileSync(path.join(fixtures, "index.json"), "utf8")).threshold;
+  // The familiarity decision must match Python's, except within 1e-4 of the threshold.
+  const familiarityProblem = (got, want) => {
+    if (want === undefined) return null;
+    maxSimilarityDiff = Math.max(maxSimilarityDiff, Math.abs(got.similarity - want));
+    if (Math.abs(want - threshold) < 1e-4) return null;
+    return got.familiar === (want >= threshold) ? null : `familiar ${got.familiar}, Python ${want >= threshold} (similarity ${want.toFixed(4)})`;
+  };
   const times = [];
   for (const im of images) {
     const start = Date.now();
@@ -82,10 +91,12 @@ async function openBrowser() {
     times.push(Date.now() - start);
     if (got.label === classes[argmax(im.logits)]) same++;
     else failures.push(`${im.path}: page says ${got.label || got.error}`);
+    const fam = got.label ? familiarityProblem(got, im.similarity) : null;
+    if (fam) failures.push(`${im.path}: ${fam}`);
     if (got.p) maxDiff = Math.max(maxDiff, diff(got, im.logits));
   }
   times.sort((a, b) => a - b);
-  console.log(JSON.stringify({ uploads: images.length, samePredictions: same, maxProbabilityDiff: maxDiff, medianMs: times[times.length >> 1] }));
+  console.log(JSON.stringify({ uploads: images.length, samePredictions: same, maxProbabilityDiff: maxDiff, maxSimilarityDiff, medianMs: times[times.length >> 1] }));
   if (maxDiff > PROBABILITY_TOLERANCE) failures.push(`validation photos: probabilities differ by ${maxDiff}`);
 
   // 2. Edge cases.
@@ -106,14 +117,22 @@ async function openBrowser() {
       line = `page refused it: ${got.error}`;
     } else {
       const d = diff(got, c.logits);
-      ok = got.label === classes[argmax(c.logits)] && d <= PROBABILITY_TOLERANCE;
-      line = `${got.label}, max probability diff ${d.toExponential(1)}`;
+      const fam = familiarityProblem(got, c.similarity);
+      ok = got.label === classes[argmax(c.logits)] && d <= PROBABILITY_TOLERANCE && !fam;
+      line = `${got.label}${got.familiar ? "" : " (flagged unfamiliar)"}, max probability diff ${d.toExponential(1)}${fam ? `; ${fam}` : ""}`;
       if (c.logits_ignoring_orientation) {
         line += ` (ignoring orientation would differ by ${diff(got, c.logits_ignoring_orientation).toExponential(1)})`;
       }
     }
     console.log(`${ok ? "ok  " : "FAIL"} ${c.name.padEnd(24)} ${line}`);
     if (!ok) failures.push(`${c.name}: ${line}`);
+  }
+
+  // An unfamiliar photo, for a screenshot of how the page answers it.
+  const everyday = edges.find((c) => c.name.startsWith("everyday-") && c.similarity < threshold);
+  if (everyday) {
+    await upload(path.join(fixtures, "edge", everyday.name));
+    await page.screenshot({ path: path.join(shots, "unfamiliar.png"), fullPage: true });
   }
 
   // 3. Examples, the same file twice, screenshots.

@@ -38,10 +38,24 @@ train:
   # on CPU the model, not image loading, is the bottleneck.
   num_workers: auto
 
-# The evaluated ONNX model, published as a GitHub release asset; make fetch-model downloads
-# it and checks it against the SHA-256 in models/model.json.
+# The familiarity check (familiarity.py): is a photo like the training photos at all?
+# Score: cosine similarity of the model's features to the nearest training photo. Rule,
+# fixed before measuring it: the threshold lets 95% of validation photos through.
+# Everyday photos for measuring it: Imagenette (fast.ai), a 10-class ImageNet subset; its
+# validation photos only, shuffled with seed 0. The first 1,500 were used to choose the
+# score (README); the rest measure it.
+familiarity:
+  keep: 0.95
+  ood_url: https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-160.tgz
+  ood_sha256: 64d0c4859f35a461889e0147755a999a48b49bf38a7e0f9bd27003f10db02fe5
+  ood_dir: data/ood
+  ood_used_for_choosing: 1500
+
+# The served files, published as GitHub release assets: the ONNX model (the evaluated
+# model with its features exposed) and the familiarity bank. make fetch-model downloads
+# them and checks each against its SHA-256 in models/model.json.
 release:
-  model_url: https://github.com/vladzpop11/waste-sorting-classifier/releases/download/model-v2/model.onnx
+  base_url: https://github.com/vladzpop11/waste-sorting-classifier/releases/download/model-v3/
 
 # Model selection, fixed before training version 2 (2026-10-20). Every architecture is
 # trained once per seed on Kaggle. The architecture with the higher mean validation macro F1

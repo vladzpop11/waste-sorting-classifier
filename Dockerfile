@@ -32,7 +32,7 @@ WORKDIR /app
 COPY --from=build /app /app
 COPY configs ./configs
 # The exported model (make export, or make fetch-model) and its record.
-COPY models/model.onnx models/model.json ./models/
+COPY models/model.onnx models/model.json models/familiarity.bin ./models/
 
 USER app
 EXPOSE 8000

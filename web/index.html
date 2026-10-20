@@ -86,6 +86,10 @@
     margin-top: 12px; padding: 8px 12px; border-radius: 8px;
     background: var(--warn-bg); color: var(--warn-text); font-size: .9rem;
   }
+  .label.unknown { text-transform: none; font-size: 1.25rem; }
+  .explain { margin: 4px 0 12px; }
+  details summary { cursor: pointer; color: var(--accent); margin-bottom: 8px; }
+  details .confidence { margin: 0 0 8px; font-size: .9rem; }
   .placeholder { color: var(--muted); }
   .error { color: var(--error); }
   .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
@@ -130,7 +134,7 @@
 
   <footer>
     <p>EfficientNet-B0 fine-tuned on TrashNet and exported to ONNX; it runs here with ONNX Runtime Web. On 366 test photos with no near-duplicate in training: 94.3% accuracy (95% CI 90.3–96.9%). The weakest class is trash. Accuracy is lower on photos unlike the training photos of their class.</p>
-    <p>Trained on photos of one object on a plain background: busy scenes and several objects at once are outside what it has learned. The examples are the first validation photo per class that the model gets right, so they show what it handles, not how often it fails.</p>
+    <p>Trained on photos of one object on a plain background: busy scenes, people, landscapes and several objects at once are outside what it has learned. The page checks how similar each photo is to the training photos and says so when it is not a photo the model knows; on everyday photos it caught 92% of them. The examples are the first validation photo per class that the model gets right, so they show what it handles, not how often it fails.</p>
     <p><a href="https://github.com/vladzpop11/waste-sorting-classifier">Code, data handling and evaluation on GitHub</a></p>
   </footer>
 </main>

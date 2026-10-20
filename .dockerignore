@@ -8,6 +8,7 @@
 !configs/
 !models/model.onnx
 !models/model.json
+!models/familiarity.bin
 **/__pycache__
 **/*.pyc
 **/.DS_Store

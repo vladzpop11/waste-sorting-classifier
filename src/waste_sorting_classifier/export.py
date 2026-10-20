@@ -5,6 +5,12 @@ axis, checks the graph with onnx.checker, then runs the same validation photos t
 PyTorch and ONNX Runtime: every predicted class must match and the logits must agree within
 a tolerance. Writes models/model.onnx and models/model.json (classes, preprocessing,
 hashes, the equivalence result), which is all the API and the demo need.
+
+The ONNX file has two outputs: `logits`, and `features`, the 1280 numbers the final layer
+reads (the familiarity check compares them with the training photos'). `features` is an
+extra output of an existing tensor: the prediction path is unchanged. When the evaluated
+file (reports/test_metrics.json) is in models/ before exporting, every training and
+validation photo is run through both files to show the logits are the same.
 """
 
 import argparse
@@ -49,7 +55,34 @@ def export_onnx(model: torch.nn.Module, path: Path) -> None:
         opset_version=OPSET,
         **kwargs,
     )
-    onnx.checker.check_model(onnx.load(str(path)))
+    add_features_output(path)
+
+
+def add_features_output(path: Path) -> None:
+    """Expose the input of the final Gemm (the pooled features) as a second output."""
+    graph = onnx.load(str(path))
+    final = next(n for n in graph.graph.node if "logits" in n.output)
+    graph.graph.node.append(onnx.helper.make_node("Identity", [final.input[0]], ["features"]))
+    width = graph.graph.initializer
+    dims = next(i.dims[1] for i in width if i.name == final.input[1])  # Gemm weight (out, in)
+    graph.graph.output.append(onnx.helper.make_tensor_value_info(
+        "features", onnx.TensorProto.FLOAT, ["batch", dims]))  # fmt: skip
+    onnx.checker.check_model(graph)
+    onnx.save(graph, str(path))
+
+
+def same_as_evaluated(new: Path, evaluated: Path, batches: list[np.ndarray]) -> dict:
+    """Logits of the new file against the evaluated one, on every given photo."""
+    sessions = [
+        ort.InferenceSession(str(f), providers=["CPUExecutionProvider"]) for f in (new, evaluated)
+    ]
+    diff, same, n = 0.0, True, 0
+    for batch in batches:
+        a, b = (s.run(["logits"], {"image": batch})[0] for s in sessions)
+        diff = max(diff, float(np.abs(a - b).max()))
+        same &= bool((a.argmax(1) == b.argmax(1)).all())
+        n += len(batch)
+    return {"images": n, "max_abs_logit_diff": diff, "same_predictions": same}
 
 
 def compare(model: torch.nn.Module, onnx_path: Path, batch: np.ndarray) -> dict:
@@ -90,6 +123,15 @@ def main(argv: list[str] | None = None) -> dict:
 
     model, classes, arch = load_checkpoint(args.checkpoint)
     onnx_path = out / "model.onnx"
+    test = (
+        json.loads((project_path(cfg["paths"]["reports_dir"]) / "test_metrics.json").read_text())
+        if (project_path(cfg["paths"]["reports_dir"]) / "test_metrics.json").exists()
+        else {}
+    )
+    evaluated_sha = test.get("onnx_sha256")
+    evaluated = out / "evaluated.onnx"
+    if onnx_path.exists() and sha256(onnx_path) == evaluated_sha:
+        onnx_path.replace(evaluated)  # kept until the comparison below
     export_onnx(model, onnx_path)
 
     val = load_split(cfg, images_dir=images_dir).query("split == 'val'").sort_values("path")
@@ -98,6 +140,22 @@ def main(argv: list[str] | None = None) -> dict:
     if not check["same_predictions"] or check["max_abs_logit_diff"] > TOLERANCE:
         onnx_path.unlink()
         raise SystemExit(f"ONNX export does not match PyTorch: {check}")
+
+    matches_evaluated = None
+    if evaluated.exists():
+        split = load_split(cfg, images_dir=images_dir).query("split != 'test'").sort_values("path")
+        paths = list(split["path"])
+        batches = (np.stack([pp.preprocess(pp.load_rgb(images_dir / p)) for p in paths[i : i + 64]])
+                   for i in range(0, len(paths), 64))  # fmt: skip
+        matches_evaluated = same_as_evaluated(onnx_path, evaluated, batches)
+        evaluated.unlink()
+        if (
+            not matches_evaluated["same_predictions"]
+            or matches_evaluated["max_abs_logit_diff"] > TOLERANCE
+        ):
+            raise SystemExit(
+                f"the new file does not reproduce the evaluated model: {matches_evaluated}"
+            )
 
     meta = {
         "arch": arch,
@@ -111,11 +169,21 @@ def main(argv: list[str] | None = None) -> dict:
             "exif_transpose": True,
         },  # fmt: skip
         "output": {"name": "logits", "apply": "softmax"},
+        "features": {
+            "name": "features",
+            "size": int(
+                onnx.load(str(onnx_path)).graph.output[1].type.tensor_type.shape.dim[1].dim_value
+            ),
+        },
         "opset": OPSET,
         "exported_with": {"torch": torch.__version__, "onnx": onnx.__version__},
         "checkpoint_sha256": sha256(args.checkpoint),
         "onnx_sha256": sha256(onnx_path),
         "equivalence_check": check,
+        # The file evaluated on the test set, and the proof this one gives the same logits
+        # (training and validation photos; the test photos are not used again).
+        "evaluated_onnx_sha256": evaluated_sha,
+        "matches_evaluated": matches_evaluated,
     }
     write_json(out / "model.json", meta)
     print(f"exported {arch} -> {onnx_path} ({onnx_path.stat().st_size / 1e6:.1f} MB)")
@@ -123,6 +191,9 @@ def main(argv: list[str] | None = None) -> dict:
         f"equivalence on {check['images']} validation photos: same predictions "
         f"{check['same_predictions']}, max |logit diff| {check['max_abs_logit_diff']:.2e}"
     )
+    if matches_evaluated:
+        print(f"against the evaluated file on {matches_evaluated['images']} photos: "
+              f"max |logit diff| {matches_evaluated['max_abs_logit_diff']:.2e}")  # fmt: skip
     return meta
 
 

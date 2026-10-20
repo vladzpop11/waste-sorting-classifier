@@ -43,7 +43,11 @@ def test_web_demo_records_the_evaluated_model() -> None:
     start = code.index("export const MODEL = ") + len("export const MODEL = ")
     web = json.loads(code[start : code.index("};", start) + 1])
     model = json.loads((root / "models" / "model.json").read_text())
-    assert web["sha256"] == model["onnx_sha256"] == json.loads(metrics.read_text())["onnx_sha256"]
+    # The served file is the evaluated model with its features exposed: same logits.
+    assert web["sha256"] == model["onnx_sha256"]
+    assert model["evaluated_onnx_sha256"] == json.loads(metrics.read_text())["onnx_sha256"]
+    assert model["matches_evaluated"]["max_abs_logit_diff"] == 0
+    assert web["familiarity"]["sha256"] == model["familiarity"]["sha256"]
     assert web["classes"] == model["classes"]
     assert web["arch"] == model["arch"]
 

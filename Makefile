@@ -3,7 +3,7 @@ NAME  ?= waste-sorting-classifier
 PORT  ?= 8000
 
 .PHONY: help setup format lint test check data split baseline smoke-train train export \
-        embeddings select evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors demo-local web check-web
+        embeddings familiarity-data familiarity select evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors demo-local web check-web
 
 help:  ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -74,7 +74,8 @@ docker-smoke: docker-run  ## Start the container, check /health, /predict and a 
 	curl -sf localhost:$(PORT)/health; echo; \
 	curl -sf -X POST localhost:$(PORT)/predict -F file=@tests/example.jpg | tee .cache/smoke.json; echo; \
 	python3 -c 'import json,sys; r=json.load(open(".cache/smoke.json")); p=r["probabilities"]; \
-	assert r["label"]=="$(SMOKE_LABEL)", r; assert abs(sum(p.values())-1)<1e-4, p; print("label ok")'; \
+	assert r["label"]=="$(SMOKE_LABEL)", r; assert abs(sum(p.values())-1)<1e-4, p; \
+	assert r["familiar"] is True, r; print("label and familiarity ok")'; \
 	code=$$(curl -s -o /dev/null -w '%{http_code}' -X POST localhost:$(PORT)/predict -F file=@README.md); \
 	test "$$code" = 422 && echo "non-image refused: $$code"
 
@@ -95,7 +96,13 @@ SMOKE_LABEL := plastic
 
 # What the static Hugging Face Space serves (web/README.md carries its settings).
 WEB_SITE := web/index.html web/app.js web/decode.js web/png.js web/inflate.js web/preprocess.js \
-	web/image-header.js web/model-info.js web/README.md web/examples web/vendor
+	web/familiarity.js web/image-header.js web/model-info.js web/README.md web/examples web/vendor
+
+familiarity-data:  ## Everyday photos (Imagenette, SHA-256 checked) for measuring the familiarity check
+	uv run python -c "from waste_sorting_classifier.config import load_config; from waste_sorting_classifier.familiarity_build import download_ood; download_ood(load_config())"
+
+familiarity:  ## Familiarity check: training-photo bank, threshold (validation), everyday-photo test
+	uv run python -m waste_sorting_classifier.familiarity_build
 
 web:  ## Prepare web/: pinned ONNX Runtime Web files and model-info.js from models/model.json
 	uv run python -m waste_sorting_classifier.web_build
@@ -108,7 +115,7 @@ check-web: web  ## Browser demo vs Python: pixels, tensors and the real page (BR
 	$(if $(filter-out chrome,$(BROWSER)),cd $(WEB_TEST) && npx playwright install $(BROWSER))
 	node web/check_preprocess.mjs $(WEB_TEST)/fixtures models/model.onnx $(WEB_TEST)/node_modules/onnxruntime-web
 	rm -rf $(WEB_TEST)/site && mkdir -p $(WEB_TEST)/site $(WEB_TEST)/shots
-	cp -R $(WEB_SITE) models/model.onnx $(WEB_TEST)/site/
+	cp -R $(WEB_SITE) models/model.onnx models/familiarity.bin $(WEB_TEST)/site/
 	cd $(WEB_TEST)/site && (python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 & echo $$! > ../server.pid)
 	sleep 1; BROWSER=$(BROWSER) NODE_PATH=$(WEB_TEST)/node_modules node web/check_page.cjs http://127.0.0.1:8765/ \
 	  $(WEB_TEST)/fixtures data/raw/images $(WEB_TEST)/shots "$(CHROME)"; status=$$?; kill $$(cat $(WEB_TEST)/server.pid); exit $$status

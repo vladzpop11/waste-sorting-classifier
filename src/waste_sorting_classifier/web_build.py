@@ -8,7 +8,8 @@
   (`make errors`). The page trusts these constants (part of its own code), not a JSON file
   sitting next to the model.
 - web/examples/: per class, the first validation photo (in path order) that the model gets
-  right, copied byte for byte. Never a training or test photo.
+  right and the familiarity check accepts, copied byte for byte. Never a training or test
+  photo.
 """
 
 import json
@@ -47,6 +48,10 @@ def main() -> None:
             files += 1
     meta = json.loads(project_path("models/model.json").read_text())
     info = {"arch": meta["arch"], "classes": meta["classes"], "sha256": meta["onnx_sha256"]}
+    fam = meta["familiarity"]
+    info["familiarity"] = {"file": fam["file"], "sha256": fam["sha256"], "rows": fam["shape"][0],
+                           "dims": fam["shape"][1], "scale": fam["scale"],
+                           "threshold": fam["threshold"]}  # fmt: skip
     errors = project_path("reports/val_errors.json")
     if errors.exists():
         analysis = json.loads(errors.read_text())
@@ -61,7 +66,9 @@ def main() -> None:
                 "accuracyBelow": flag["accuracy_below"],
                 "accuracyAbove": flag["accuracy_above"],
             }
-        copy_examples(meta["classes"], {e["path"] for e in analysis["photos"]})
+        unfamiliar = set(json.loads(project_path("reports/familiarity.json").read_text())
+                         ["unfamiliar_validation_photos"])  # fmt: skip
+        copy_examples(meta["classes"], {e["path"] for e in analysis["photos"]} | unfamiliar)
     else:
         print("warning: no reports/val_errors.json, so no low-confidence note (run `make errors`)")
     (web / "model-info.js").write_text(

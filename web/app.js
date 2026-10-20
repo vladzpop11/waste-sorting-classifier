@@ -8,6 +8,7 @@ const jpegFactory = globalThis.libjpegturbowasm_decode;
 import * as ort from "./vendor/ort.wasm.min.mjs";
 import webpFactory from "./vendor/webp_dec.js";
 import { decodeImage, makeCodecs } from "./decode.js";
+import { similarity } from "./familiarity.js";
 import { MODEL, WASM } from "./model-info.js";
 import { preprocess } from "./preprocess.js";
 
@@ -18,7 +19,7 @@ const MAX_BYTES = 20 * 1024 * 1024;
 const EXAMPLES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"];
 
 const $ = (id) => document.getElementById(id);
-let session, codecs;
+let session, codecs, bank;
 let latest = 0; // only the most recent request may show a result
 
 async function sha256Hex(buffer) {
@@ -41,11 +42,13 @@ async function fetchVerified(url, expected) {
 }
 
 async function load() {
-  const [model, ortWasm, jpegWasm, webpWasm] = await Promise.all([
+  const [model, bankBytes, ortWasm, jpegWasm, webpWasm] = await Promise.all([
     fetchVerified("model.onnx", MODEL.sha256),
+    fetchVerified(MODEL.familiarity.file, MODEL.familiarity.sha256),
     ...["ort-wasm-simd-threaded.wasm", "libjpegturbowasm_decode.wasm", "webp_dec.wasm"].map((name) =>
       fetchVerified(`vendor/${name}`, WASM[name])),
   ]);
+  bank = new Int8Array(bankBytes.buffer, bankBytes.byteOffset, bankBytes.byteLength);
   ort.env.wasm.wasmBinary = ortWasm;
   codecs = makeCodecs({ jpegFactory, jpegWasm, webpFactory, webpWasm });
   session = await ort.InferenceSession.create(model, { executionProviders: ["wasm"] });
@@ -60,22 +63,7 @@ function softmax(logits) {
   return exps.map((v) => v / sum);
 }
 
-function showResult(probabilities) {
-  const ranked = MODEL.classes
-    .map((name, i) => ({ name, p: probabilities[i] }))
-    .sort((a, b) => b.p - a.p);
-  const top = ranked[0];
-  const result = $("result");
-  result.dataset.label = top.name;
-  result.dataset.probabilities = JSON.stringify(Object.fromEntries(ranked.map((r) => [r.name, r.p])));
-  result.replaceChildren();
-
-  const label = document.createElement("p");
-  label.className = "label";
-  label.textContent = top.name;
-  const conf = document.createElement("p");
-  conf.className = "confidence";
-  conf.textContent = `${(top.p * 100).toFixed(1)}% confidence`;
+function bars(ranked, top) {
   const list = document.createElement("ul");
   list.className = "bars";
   for (const r of ranked) {
@@ -87,17 +75,51 @@ function showResult(probabilities) {
     li.querySelector(".pct").textContent = `${(r.p * 100).toFixed(1)}%`;
     list.append(li);
   }
-  result.append(label, conf, list);
+  return list;
+}
+
+const paragraph = (className, text) => {
+  const p = document.createElement("p");
+  p.className = className;
+  p.textContent = text;
+  return p;
+};
+
+function showResult(probabilities, score) {
+  const ranked = MODEL.classes
+    .map((name, i) => ({ name, p: probabilities[i] }))
+    .sort((a, b) => b.p - a.p);
+  const top = ranked[0];
+  const familiar = score >= MODEL.familiarity.threshold;
+  const result = $("result");
+  result.dataset.label = top.name;
+  result.dataset.probabilities = JSON.stringify(Object.fromEntries(ranked.map((r) => [r.name, r.p])));
+  result.dataset.similarity = String(score);
+  result.dataset.familiar = String(familiar);
+  result.replaceChildren();
+
+  if (!familiar) {
+    // The model has to pick one of its six classes even for a person or a landscape; when
+    // the photo is unlike every training photo, say so instead of showing a label.
+    result.append(
+      paragraph("label unknown", "Not a photo the model knows"),
+      paragraph("explain", "It doesn't look like the photos the model was trained on: one waste item on a plain background. Any answer would be a guess."),
+    );
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = "Show the model's guess anyway";
+    details.append(summary, paragraph("confidence", `Similarity to the nearest training photo: ${score.toFixed(2)} (photos below ${MODEL.familiarity.threshold.toFixed(2)} are flagged). Guess: ${top.name}, ${(top.p * 100).toFixed(0)}%.`), bars(ranked, top));
+    result.append(details);
+    return;
+  }
+  result.append(paragraph("label", top.name), paragraph("confidence", `${(top.p * 100).toFixed(1)}% confidence`), bars(ranked, top));
   const flag = MODEL.lowConfidence; // chosen on validation photos by `make errors`
   if (flag && top.p < flag.threshold) {
-    const note = document.createElement("p");
-    note.className = "note";
     const pct = Math.round(flag.threshold * 100);
     const rate = (x) => `${Math.round(x * 100)}%`;
-    note.textContent = flag.accuracyBelow === null
+    result.append(paragraph("note", flag.accuracyBelow === null
       ? `Less certain than usual: below ${pct}% confidence, check the answer.`
-      : `Less certain than usual: on validation photos below ${pct}% confidence, the model was right ${rate(flag.accuracyBelow)} of the time, against ${rate(flag.accuracyAbove)} above it.`;
-    result.append(note);
+      : `Less certain than usual: on validation photos below ${pct}% confidence, the model was right ${rate(flag.accuracyBelow)} of the time, against ${rate(flag.accuracyAbove)} above it.`));
   }
 }
 
@@ -149,7 +171,9 @@ async function classify(blob, id = ++latest) {
     const input = new ort.Tensor("float32", preprocess(rgb, width, height), [1, 3, 224, 224]);
     const output = await session.run({ image: input });
     if (id !== latest) return;
-    showResult(softmax(Array.from(output.logits.data)));
+    const f = MODEL.familiarity;
+    const score = similarity(bank, f.rows, f.dims, f.scale, output.features.data);
+    showResult(softmax(Array.from(output.logits.data)), score);
   } catch (err) {
     if (id !== latest) return;
     preview.hidden = true;

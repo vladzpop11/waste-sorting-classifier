@@ -11,11 +11,13 @@ Classify a photo of a waste item into six recycling categories: cardboard, glass
 | Accuracy | **94.3%** | 91.8–96.4% | 90.3–96.9% |
 | Macro F1 | **0.936** | 0.905–0.963 | 0.905–0.965 |
 | Weakest class: trash (19 photos), F1 | 0.889 | 0.762–0.974 | |
-| Latency, one upload, Docker on a 2-core 2018 MacBook Air | 49 ms mean, 63 ms p95 | | |
+| Latency, one upload, Docker on a 2-core 2018 MacBook Air | 49 ms mean, 63 ms p95 (quiet machine); 76 / 98 ms with other work running | | |
+| **Everyday photos it flags as "not a photo the model knows"** (people, animals, buildings, landscapes) | **92%** | false alarms on new waste photos: 5% | |
 
 - **The test set measures new objects.** Photos of the same object are kept on one side of the split, with a checked guarantee. A first version of the split leaked; it was rebuilt and the models retrained. See [Data](#data).
 - **Fine-tuning earns its GPU.** On validation it beats a tuned linear probe on frozen ImageNet features by 11 accuracy points, 94.0% against 83.1%.
 - **The setting is narrow:** one object on a plain background. On the 25 test photos least like any training photo of their class, accuracy falls to 68%.
+- **It says when a photo is outside that setting.** A classifier must pick one of its classes even for a photo of a person; a familiarity check compares each photo with the training photos and flags the unfamiliar ones instead. See [Photos the model doesn't know](#photos-the-model-doesnt-know).
 
 **Try it:** [huggingface.co/spaces/VladZpp/waste-sorting-classifier](https://huggingface.co/spaces/VladZpp/waste-sorting-classifier). The model runs in your browser, so photos never leave your device.
 
@@ -25,16 +27,16 @@ Requires Python 3.12 via [uv](https://docs.astral.sh/uv/), `make` and Docker. `m
 
 ```bash
 make setup data       # dependencies, then the dataset (SHA-256 and class counts checked)
-make fetch-model      # the evaluated ONNX model from the GitHub release (SHA-256 checked)
+make fetch-model      # the served model and familiarity bank from the GitHub release (SHA-256 checked)
 make docker-build docker-run
 curl -s --retry 10 --retry-connrefused --retry-delay 1 localhost:8000/health
 curl -s -X POST localhost:8000/predict -F file=@tests/example.jpg
 make docker-stop
 ```
 
-- **`POST /predict`** takes a JPEG, PNG or WebP upload (field `file`, up to 5 MB, 25 megapixels, 10:1 aspect ratio). It returns the label and all six probabilities. Interactive docs: `GET /docs`.
+- **`POST /predict`** takes a JPEG, PNG or WebP upload (field `file`, up to 5 MB, 25 megapixels, 10:1 aspect ratio). It returns the label, all six probabilities, and `familiar` with its `similarity`: when `familiar` is false, the photo is unlike the training photos and the label is not reliable. Interactive docs: `GET /docs`.
 - **Refused inputs** get an error with one shape, `{"detail": [{"type", "loc", "msg"}]}`: 413 too large, 415 not a multipart upload, 422 not a readable image or outside the limits, 503 busy (two predictions at a time).
-- **Pipeline targets,** in order: `make split`, `make baseline`, `make smoke-train` (one CPU epoch), training on Kaggle, `make select`, `make export`, `make errors`, `make evaluate` (once), `make latency`, `make web`.
+- **Pipeline targets,** in order: `make split`, `make baseline`, `make smoke-train` (one CPU epoch), training on Kaggle, `make select`, `make export`, `make errors`, `make evaluate` (once), `make familiarity-data familiarity`, `make latency`, `make web`.
 - **Checks:** `make check` (Ruff and pytest), `make docker-smoke`, `make check-web` (the browser against Python; needs Node.js and Chrome). CI runs all three.
 
 ## Data
@@ -59,7 +61,8 @@ make docker-stop
 4. **Export on the Mac.** The selected checkpoint (its SHA-256 checked) is loaded with `weights_only=True` and exported to ONNX (opset 17).
    - **Equivalence:** on 20 validation photos the predictions are identical, with a maximum logit difference of 1.4e-6.
    - **Cross-check:** the ONNX model reproduces the GPU run's validation scores exactly (95.00%, macro F1 0.9398).
-5. **One test evaluation,** of the exported ONNX file that the API serves. `make evaluate` checks that this file was exported from the selected checkpoint, and refuses to run a second time. It was first rehearsed on validation (`--rehearse`), so the single real run was not the first.
+5. **One test evaluation,** of the exported ONNX file. `make evaluate` checks that this file was exported from the selected checkpoint, and refuses to run a second time. It was first rehearsed on validation (`--rehearse`), so the single real run was not the first.
+   - **The served file adds one output to it:** the features the familiarity check needs. The weights and the prediction path are the same, and on all 2,155 training and validation photos its logits are bit-identical to the evaluated file's (`matches_evaluated` in [models/model.json](models/model.json)). The test photos were not run again.
 6. **A browser demo with the same numbers, in every browser.** The public demo is a static page ([web/](web/)) that runs the same ONNX file with ONNX Runtime Web.
    - **Decoding without the browser:** browsers decode images differently from Pillow. Safari uses its own JPEG decoder, and browsers apply colour profiles and premultiply transparency. So the page decodes images itself ([decode.js](web/decode.js)):
      - JPEG with libjpeg-turbo 3 and WebP with libwebp, compiled to WebAssembly: the libraries Pillow uses;
@@ -125,6 +128,22 @@ Most test photos have a fairly similar training photo, and those are classified 
 
 **Calibration** ([reliability diagram](reports/figures/reliability_test.png)): the model is underconfident, as label smoothing tends to make it (expected calibration error 0.085). Answers at 90% confidence or more were right 99.0% of the time on test (208 photos). The demo marks answers below 90% as less certain. That threshold was chosen on validation by a fixed rule: the lowest threshold above which validation accuracy reaches 99%.
 
+## Photos the model doesn't know
+
+The classifier has to answer with one of its six classes. A photo of a person, a dog or a landscape still gets a label, and sometimes a confident one: on 2,425 everyday photos, 24% got 70% confidence or more. A phone test found this, with portraits and landscapes called paper at 80%.
+
+**The familiarity check** ([familiarity.py](src/waste_sorting_classifier/familiarity.py), [familiarity_build.py](src/waste_sorting_classifier/familiarity_build.py)):
+- **How it works:** it compares the model's features for a photo (the 1,280 numbers its final layer reads) with those of all 1,795 training photos. The photo is flagged when even the nearest training photo has a cosine similarity below the threshold. The API returns `familiar` and `similarity`. Instead of a label, the demo says the photo is not one the model knows, with the guess behind a link.
+- **Threshold, by a rule fixed in [config.yaml](configs/config.yaml):** 95% of validation photos must pass. That gives 0.535.
+- **False alarms on new waste photos: 5.2%.** The threshold is set on one half of the validation groups and the flags are counted on the other half, both ways.
+- **Everyday photos flagged: 91.6%** of 2,425 [Imagenette](https://github.com/fastai/imagenette) validation photos: people with fish, dogs, churches, parachutes, golf balls, trucks and more. By class it ranges from 81% (gas pumps) to 98% (people holding fish).
+- **How the method was chosen:** five ways of detecting unfamiliar photos were compared on 1,500 other Imagenette photos. These photos are not part of the 2,425 above. The model's own confidence would catch only 69%.
+- **Flagged waste photos are hard ones too.** On the 18 validation photos the check flags, the model is right 56% of the time, against 97% on the rest.
+
+![Similarity to the nearest training photo: validation waste photos against everyday photos](reports/figures/familiarity.png)
+
+[reports/familiarity.json](reports/familiarity.json) has the details. The browser computes the same score, and `make check-web` checks it against Python: within 1e-6, with the same flag for every validation photo and for 30 held-out everyday photos.
+
 ## What it gets wrong
 
 ![Validation errors: 18 of 360](reports/figures/val_errors.png)
@@ -160,6 +179,7 @@ Most errors are uncertain: 16 of 18 validation errors and 19 of 21 test errors w
 ## Limitations
 
 - **The photos are studio-like:** one object, a white background, good light. Real bins, mixed items and clutter were never tested, and accuracy there would likely be much lower. The 68% on the least familiar test photos is a hint of this.
+- **The familiarity check is not a guarantee.** It lets through 8% of everyday photos, and 7% of everyday photos pass it with 70% confidence or more. It also flags about 5% of genuine waste photos. Most real trash photographed in clutter will be flagged, which is right for this model, but means the check cannot make the model usable on such photos.
 - **The data is small.** The test set has 366 photos in 249 groups, so accuracy is uncertain by about ±3 points. Trash has 19 test photos.
 - **The split guarantee stops at 0.86 similarity.** Below it, some test photos may still show an object also photographed in training (46 test photos are at 0.85–0.86), which would make the score slightly optimistic.
 - **Plastic in the test set is one family of look-alike photos,** so its score describes plastic in general less well than the other classes' scores do.

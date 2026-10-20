@@ -10,7 +10,15 @@ export const MODEL = {
     "plastic",
     "trash"
   ],
-  "sha256": "e6eccc9d36936c9e6646a5d716507d0a51db62f049070f18719053de5b8bcf10",
+  "sha256": "155e0de2a39181f0a454bc2833217c70c81a84f5d308e89e9cbafc3724c3f11d",
+  "familiarity": {
+    "file": "familiarity.bin",
+    "sha256": "194c1bbac83f79cd4dc041b04bcf0e1357ec8226816c4f275f7eff4f1f70a630",
+    "rows": 1795,
+    "dims": 1280,
+    "scale": 127,
+    "threshold": 0.5347744980626861
+  },
   "lowConfidence": {
     "threshold": 0.9,
     "accuracyBelow": 0.8904109589041096,

@@ -1,0 +1,58 @@
+{
+  "onnx_sha256": "155e0de2a39181f0a454bc2833217c70c81a84f5d308e89e9cbafc3724c3f11d",
+  "threshold": 0.5347744980626861,
+  "rule": "lets 95% of validation photos through",
+  "bank_photos": 1795,
+  "validation_photos": 360,
+  "unfamiliar_validation_photos": [
+    "glass/glass134.jpg",
+    "glass/glass184.jpg",
+    "glass/glass274.jpg",
+    "glass/glass322.jpg",
+    "glass/glass494.jpg",
+    "glass/glass55.jpg",
+    "metal/metal177.jpg",
+    "paper/paper102.jpg",
+    "paper/paper242.jpg",
+    "paper/paper55.jpg",
+    "paper/paper6.jpg",
+    "plastic/plastic147.jpg",
+    "plastic/plastic162.jpg",
+    "plastic/plastic2.jpg",
+    "plastic/plastic460.jpg",
+    "plastic/plastic68.jpg",
+    "trash/trash124.jpg",
+    "trash/trash32.jpg"
+  ],
+  "validation_accuracy": {
+    "flagged": 0.5555555555555556,
+    "not_flagged": 0.9707602339181286
+  },
+  "false_alarm_rate_on_new_waste_photos": {
+    "halves": [
+      0.06832298136645963,
+      0.035175879396984924
+    ],
+    "mean": 0.05174943038172228
+  },
+  "everyday_photos": {
+    "source": "Imagenette validation photos not used to choose the method",
+    "photos": 2425,
+    "caught": 0.9158762886597939,
+    "caught_by_imagenette_class": {
+      "English springer (dog)": 0.9411764705882353,
+      "French horn": 0.9106382978723404,
+      "cassette player": 0.8195121951219512,
+      "chain saw": 0.9251968503937008,
+      "church": 0.9215686274509803,
+      "garbage truck": 0.9375,
+      "gas pump": 0.8062015503875969,
+      "golf ball": 0.9583333333333334,
+      "parachute": 0.9494163424124513,
+      "tench (fish, often held by people)": 0.9794238683127572
+    },
+    "model_confidence_median": 0.5349069237709045,
+    "model_confidence_at_least_0.7": 0.23628865979381444,
+    "missed_and_confidence_at_least_0.7": 0.0688659793814433
+  }
+}

@@ -22,8 +22,19 @@ class OnnxClassifier:
         self.session = ort.InferenceSession(str(path), options, providers=["CPUExecutionProvider"])
         self.classes: list[str] = self.meta["classes"]
 
+    def run(self, batch: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """(N, 3, 224, 224) preprocessed images -> (logits, features)."""
+        logits, features = self.session.run(
+            ["logits", "features"], {"image": batch.astype(np.float32)}
+        )
+        return logits, features
+
     def predict_proba(self, batch: np.ndarray) -> np.ndarray:
         """(N, 3, 224, 224) preprocessed images -> (N, classes) probabilities."""
         logits = self.session.run(["logits"], {"image": batch.astype(np.float32)})[0]
-        z = np.exp(logits - logits.max(axis=1, keepdims=True))
-        return z / z.sum(axis=1, keepdims=True)
+        return softmax(logits)
+
+
+def softmax(logits: np.ndarray) -> np.ndarray:
+    z = np.exp(logits - logits.max(axis=1, keepdims=True))
+    return z / z.sum(axis=1, keepdims=True)

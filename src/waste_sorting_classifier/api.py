@@ -23,12 +23,13 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse
 from PIL import Image, UnidentifiedImageError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from waste_sorting_classifier import __version__
 from waste_sorting_classifier.config import load_config, project_path
-from waste_sorting_classifier.onnx_model import OnnxClassifier
+from waste_sorting_classifier.familiarity import Familiarity
+from waste_sorting_classifier.onnx_model import OnnxClassifier, softmax
 from waste_sorting_classifier.preprocess import check_size, load_rgb, preprocess
 
 logger = logging.getLogger(__name__)
@@ -47,8 +48,17 @@ class ImageRejected(ValueError):
 
 
 class Prediction(BaseModel):
-    label: str
+    label: str = Field(description="The most probable class")
     probabilities: dict[str, float]
+    familiar: bool = Field(
+        description="Whether the photo resembles the training photos (one waste item on a plain "
+        "background). When false, the label is not reliable: the model has never seen photos "
+        "like this one and has to pick one of its six classes anyway."
+    )
+    similarity: float = Field(
+        description="Cosine similarity of the photo's features to the nearest training photo; "
+        "familiar means at least the threshold reported by /health"
+    )
     model: str
 
 
@@ -136,6 +146,7 @@ def models_dir() -> Path:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.model = OnnxClassifier(models_dir(), threads=1)
+    app.state.familiarity = Familiarity(models_dir(), app.state.model.meta)
     yield
 
 
@@ -181,6 +192,7 @@ def health() -> dict:
         "model": model.meta["arch"],
         "classes": model.classes,
         "onnx_sha256": model.meta["onnx_sha256"],
+        "familiarity_threshold": app.state.familiarity.threshold,
     }
 
 
@@ -201,13 +213,17 @@ def predict(
         return error(503, "busy", "the server is busy; try again shortly")
     try:
         image = decode_image(file.file.read())
-        proba = model.predict_proba(preprocess(image)[np.newaxis])[0]
+        logits, features = model.run(preprocess(image)[np.newaxis])
     except ImageRejected as exc:
         return error(422, "invalid_image", str(exc))
     finally:
         _slots.release()
+    proba = softmax(logits)[0]
+    similarity = float(app.state.familiarity.score(features)[0])
     return Prediction(
         label=model.classes[int(proba.argmax())],
         probabilities={c: round(float(p), 6) for c, p in zip(model.classes, proba, strict=True)},
+        familiar=similarity >= app.state.familiarity.threshold,
+        similarity=round(similarity, 4),
         model=model.meta["arch"],
     )

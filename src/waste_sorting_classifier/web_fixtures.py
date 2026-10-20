@@ -19,6 +19,8 @@ from PIL import Image
 
 from waste_sorting_classifier import preprocess as pp
 from waste_sorting_classifier.config import load_config, project_path
+from waste_sorting_classifier.familiarity import Familiarity
+from waste_sorting_classifier.familiarity_build import ood_photos
 from waste_sorting_classifier.onnx_model import OnnxClassifier
 from waste_sorting_classifier.split import load_split
 from waste_sorting_classifier.web_edge_cases import KNOWN_DIFFERENCES, edge_cases
@@ -26,7 +28,9 @@ from waste_sorting_classifier.web_edge_cases import KNOWN_DIFFERENCES, edge_case
 ICC_PROFILE = Path("/System/Library/ColorSync/Profiles/Display P3.icc")  # macOS only
 
 
-def python_result(model: OnnxClassifier, data: bytes) -> dict:
+def python_result(
+    model: OnnxClassifier, data: bytes, familiarity: Familiarity | None = None
+) -> dict:
     """What the Python pipeline (the API's path) does with an upload."""
     try:
         with Image.open(io.BytesIO(data)) as probe:
@@ -36,7 +40,11 @@ def python_result(model: OnnxClassifier, data: bytes) -> dict:
         x = pp.preprocess(pp.load_rgb(io.BytesIO(data)))
     except Exception as err:  # the API refuses any file Pillow cannot read
         return {"refused": f"{type(err).__name__}: {err}"}
-    return {"logits": model.session.run(["logits"], {"image": x[np.newaxis]})[0][0].tolist()}
+    logits, features = model.run(x[np.newaxis])
+    result = {"logits": logits[0].tolist()}
+    if familiarity is not None:
+        result["similarity"] = float(familiarity.score(features)[0])
+    return result
 
 
 def main() -> None:
@@ -44,18 +52,23 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     cfg = load_config()
     model = OnnxClassifier(project_path(cfg["paths"]["models_dir"]))
+    familiarity = Familiarity(project_path(cfg["paths"]["models_dir"]), model.meta)
     images_dir = project_path(cfg["data"]["raw_dir"]) / "images"
     val = load_split(cfg).query("split == 'val'").sort_values("path")
     index = []
     for i, path in enumerate(val["path"]):
         image = pp.load_rgb(images_dir / path)
         x = pp.preprocess(image)
-        logits = model.session.run(["logits"], {"image": x[np.newaxis]})[0][0]
+        logits, features = model.run(x[np.newaxis])
+        logits = logits[0]
+        similarity = float(familiarity.score(features)[0])
         (out / f"{i}.rgb").write_bytes(np.asarray(image, dtype=np.uint8).tobytes())
         (out / f"{i}.f32").write_bytes(x.astype("<f4").tobytes())
         index.append({"file": i, "path": path, "width": image.width, "height": image.height,
+                      "similarity": similarity,
                       "logits": logits.tolist()})  # fmt: skip
-    (out / "index.json").write_text(json.dumps({"classes": model.classes, "images": index}))
+    record = {"classes": model.classes, "threshold": familiarity.threshold, "images": index}
+    (out / "index.json").write_text(json.dumps(record))
     print(f"{len(index)} validation photos -> {out}")
 
     edge_dir = out / "edge"
@@ -65,7 +78,7 @@ def main() -> None:
     edges = []
     for name, data in edge_cases(photo, icc).items():
         (edge_dir / name).write_bytes(data)
-        result = python_result(model, data)
+        result = python_result(model, data, familiarity)
         if "logits" in result:
             # Python's decoded pixels, for an exact comparison (web/check_decode.mjs).
             image = pp.load_rgb(io.BytesIO(data))
@@ -81,6 +94,17 @@ def main() -> None:
             page, reason = KNOWN_DIFFERENCES[name]
             result["page_differs"] = {"page": page, "reason": reason}
         edges.append({"name": name, **result})
+    # Everyday photos not used to choose the familiarity check (when `make familiarity-data`
+    # has run): the page must flag exactly the ones the API flags.
+    if (project_path(cfg["familiarity"]["ood_dir"]) / "imagenette2-160").exists():
+        for path in ood_photos(cfg)[1][:30]:
+            name = f"everyday-{path.parent.name}-{path.name}"
+            data = path.read_bytes()
+            (edge_dir / name).write_bytes(data)
+            image = pp.load_rgb(io.BytesIO(data))
+            (edge_dir / f"{name}.rgb").write_bytes(np.asarray(image, dtype=np.uint8).tobytes())
+            edges.append({"name": name, "width": image.width, "height": image.height,
+                          **python_result(model, data, familiarity)})  # fmt: skip
     (out / "edge.json").write_text(json.dumps(edges))
     refused = sum("refused" in e for e in edges)
     print(f"{len(edges)} edge cases ({refused} refused by Python) -> {edge_dir}")

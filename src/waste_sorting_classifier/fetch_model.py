@@ -1,7 +1,8 @@
-"""Download the evaluated ONNX model from the GitHub release and verify it before use.
+"""Download the served files from the GitHub release and verify them before use.
 
-The file must match the SHA-256 recorded in models/model.json (committed); any other file
-is deleted. No partial file is ever left in place.
+model.onnx and the familiarity bank must match the SHA-256 values recorded in
+models/model.json (committed); any other file is deleted. No partial file is ever left in
+place.
 """
 
 import json
@@ -34,13 +35,17 @@ def main() -> None:
     meta_path = models / "model.json"
     if not meta_path.exists():
         sys.exit(f"{meta_path} is missing; it records which model to fetch")
-    expected = json.loads(meta_path.read_text())["onnx_sha256"]
-    dest = models / "model.onnx"
-    if dest.exists() and sha256(dest) == expected:
-        print(f"{dest} is already the evaluated model")
-        return
-    fetch(cfg["release"]["model_url"], dest, expected)
-    print(f"downloaded and verified {dest} (SHA-256 {expected[:16]}…)")
+    meta = json.loads(meta_path.read_text())
+    files = {"model.onnx": meta["onnx_sha256"]}
+    if "familiarity" in meta:
+        files[meta["familiarity"]["file"]] = meta["familiarity"]["sha256"]
+    for name, expected in files.items():
+        dest = models / name
+        if dest.exists() and sha256(dest) == expected:
+            print(f"{dest} is already the recorded file")
+            continue
+        fetch(cfg["release"]["base_url"] + name, dest, expected)
+        print(f"downloaded and verified {dest} (SHA-256 {expected[:16]}…)")
 
 
 if __name__ == "__main__":
