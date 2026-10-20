@@ -29,3 +29,4 @@ reports/*
 !reports/history/
 
 .cache/
+web/vendor/

@@ -39,6 +39,9 @@ def test_web_demo_records_the_evaluated_model() -> None:
     metrics = root / "reports" / "test_metrics.json"
     if not metrics.exists():
         pytest.skip("no evaluated model yet")
-    web = json.loads((root / "web" / "model.json").read_text())
-    assert web["onnx_sha256"] == json.loads(metrics.read_text())["onnx_sha256"]
-    assert json.loads((root / "models" / "model.json").read_text()) == web
+    code = (root / "web" / "model-info.js").read_text()
+    web = json.loads(code[code.index("{") : code.rindex("}") + 1])
+    model = json.loads((root / "models" / "model.json").read_text())
+    assert web["sha256"] == model["onnx_sha256"] == json.loads(metrics.read_text())["onnx_sha256"]
+    assert web["classes"] == model["classes"]
+    assert web["arch"] == model["arch"]

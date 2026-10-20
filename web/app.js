@@ -1,55 +1,90 @@
-// Browser demo: the evaluated ONNX model runs locally with ONNX Runtime Web.
-// The model file is checked against the SHA-256 in model.json before it is used.
-import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/ort.wasm.min.mjs";
-import { preprocess } from "./preprocess.js";
+// Browser demo: the evaluated ONNX model runs locally with ONNX Runtime Web, served from
+// this site (web/vendor, pinned by SHA-256); nothing is sent anywhere. The model file is
+// checked against the SHA-256 in model-info.js (part of the page's own code) before use.
+import * as ort from "./vendor/ort.wasm.min.mjs";
+import { readHeader, withoutOrientation } from "./image-header.js";
+import { MODEL } from "./model-info.js";
+import { checkSize, preprocess } from "./preprocess.js";
 
-ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/";
+ort.env.wasm.wasmPaths = new URL("./vendor/", import.meta.url).href;
 ort.env.wasm.numThreads = 1; // multi-threading needs cross-origin isolation, not set here
 
-const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 20 * 1024 * 1024;
-const MAX_PIXELS = 40_000_000;
 const LOW_CONFIDENCE = 0.63; // most validation errors had confidence below 63%
 const EXAMPLES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"];
 
 const $ = (id) => document.getElementById(id);
-let session, meta;
+let session;
+let latest = 0; // only the most recent upload may show a result
 
 async function sha256Hex(buffer) {
   const digest = await crypto.subtle.digest("SHA-256", buffer);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+async function fetchOk(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+  return response;
+}
+
 async function loadModel() {
-  meta = await (await fetch("model.json")).json();
-  const buffer = await (await fetch("model.onnx")).arrayBuffer();
-  const actual = await sha256Hex(buffer);
-  if (actual !== meta.onnx_sha256) {
-    throw new Error(`model.onnx does not match its recorded SHA-256; refusing to run it`);
+  const buffer = await (await fetchOk("model.onnx")).arrayBuffer();
+  if ((await sha256Hex(buffer)) !== MODEL.sha256) {
+    throw new Error("model.onnx does not match the evaluated model; refusing to run it");
   }
   session = await ort.InferenceSession.create(new Uint8Array(buffer), {
     executionProviders: ["wasm"],
   });
-  $("status").textContent = `Model ready: ${meta.arch}, SHA-256 ${actual.slice(0, 16)}… verified.`;
+  $("status").textContent = `Model ready: ${MODEL.arch}, SHA-256 ${MODEL.sha256.slice(0, 16)}… verified.`;
   document.body.dataset.ready = "true";
 }
 
-// Decode to RGB pixels: upright from EXIF, no colour-profile conversion (like Pillow).
+// Draw the bitmap upright for an EXIF orientation (1-8), like Pillow's exif_transpose.
+function drawOriented(ctx, bitmap, orientation) {
+  const w = bitmap.width, h = bitmap.height;
+  const transforms = {
+    2: [-1, 0, 0, 1, w, 0],
+    3: [-1, 0, 0, -1, w, h],
+    4: [1, 0, 0, -1, 0, h],
+    5: [0, 1, 1, 0, 0, 0],
+    6: [0, 1, -1, 0, h, 0],
+    7: [0, -1, -1, 0, h, w],
+    8: [0, -1, 1, 0, 0, w],
+  };
+  if (transforms[orientation]) ctx.transform(...transforms[orientation]);
+  ctx.drawImage(bitmap, 0, 0);
+}
+
+// Decode to 8-bit RGB like preprocess.py's load_rgb: upright from EXIF, transparency
+// flattened onto white, no colour-profile conversion.
 async function decode(blob) {
-  if (!ALLOWED.includes(blob.type)) throw new Error("Use a JPEG, PNG or WebP photo.");
   if (blob.size > MAX_BYTES) throw new Error("That file is larger than 20 MB.");
-  const bitmap = await createImageBitmap(blob, {
-    imageOrientation: "from-image",
-    colorSpaceConversion: "none",
-    premultiplyAlpha: "none",
-  });
-  const { width, height } = bitmap;
-  if (width * height > MAX_PIXELS) throw new Error("That image has too many pixels.");
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const header = readHeader(bytes);
+  if (!header.format) throw new Error("Use a JPEG, PNG or WebP photo.");
+  checkSize(header.width, header.height); // before the browser decodes anything
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(new Blob([withoutOrientation(bytes, header)]), {
+      colorSpaceConversion: "none", // Pillow ignores colour profiles too
+      premultiplyAlpha: "none", // Chrome's premultiplied WebP decoding loses precision
+    });
+  } catch {
+    throw new Error("That file could not be read as an image: it may be damaged.");
+  }
+  const swap = header.orientation >= 5;
+  const width = swap ? bitmap.height : bitmap.width;
+  const height = swap ? bitmap.width : bitmap.height;
+  checkSize(width, height);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(bitmap, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  drawOriented(ctx, bitmap, header.orientation);
   bitmap.close();
   const rgba = ctx.getImageData(0, 0, width, height).data;
   const rgb = new Uint8Array(width * height * 3);
@@ -69,7 +104,7 @@ function softmax(logits) {
 }
 
 function showResult(probabilities) {
-  const ranked = meta.classes
+  const ranked = MODEL.classes
     .map((name, i) => ({ name, p: probabilities[i] }))
     .sort((a, b) => b.p - a.p);
   const top = ranked[0];
@@ -107,6 +142,7 @@ function showResult(probabilities) {
 function showError(message) {
   const result = $("result");
   delete result.dataset.label;
+  result.dataset.error = "true";
   const p = document.createElement("p");
   p.className = "error";
   p.textContent = message;
@@ -114,18 +150,25 @@ function showError(message) {
 }
 
 async function classify(blob) {
+  const id = ++latest;
   if (!session) return showError("The model is still loading; try again in a moment.");
+  delete $("result").dataset.error;
+  const preview = $("preview");
+  if (preview.src) URL.revokeObjectURL(preview.src);
+  preview.src = URL.createObjectURL(blob);
+  preview.hidden = false;
+  $("drop-hint").hidden = true;
   try {
-    const preview = $("preview");
-    if (preview.src) URL.revokeObjectURL(preview.src);
-    preview.src = URL.createObjectURL(blob);
-    preview.hidden = false;
-    $("drop-hint").hidden = true;
     const { rgb, width, height } = await decode(blob);
+    if (id !== latest) return; // a newer upload has started
     const input = new ort.Tensor("float32", preprocess(rgb, width, height), [1, 3, 224, 224]);
     const output = await session.run({ image: input });
+    if (id !== latest) return;
     showResult(softmax(Array.from(output.logits.data)));
   } catch (err) {
+    if (id !== latest) return;
+    preview.hidden = true;
+    $("drop-hint").hidden = false;
     showError(err.message || "That file could not be read as an image.");
   }
 }
@@ -133,17 +176,16 @@ async function classify(blob) {
 function setUp() {
   const drop = $("drop");
   const file = $("file");
+  const open = () => file.click();
   $("pick").addEventListener("click", (e) => {
-    e.preventDefault();
-    file.click();
+    e.stopPropagation();
+    open();
   });
-  drop.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      file.click();
-    }
+  drop.addEventListener("click", open);
+  file.addEventListener("change", () => {
+    if (file.files[0]) classify(file.files[0]);
+    file.value = ""; // choosing the same file again must work too
   });
-  file.addEventListener("change", () => file.files[0] && classify(file.files[0]));
   drop.addEventListener("dragover", (e) => {
     e.preventDefault();
     drop.classList.add("over");
@@ -157,13 +199,16 @@ function setUp() {
   for (const name of EXAMPLES) {
     const button = document.createElement("button");
     button.type = "button";
-    button.innerHTML = `<img alt=""><span></span>`;
+    button.setAttribute("aria-label", `Example photo: ${name}`);
+    button.innerHTML = `<img alt=""><span aria-hidden="true"></span>`;
     button.querySelector("img").src = `examples/${name}.jpg`;
-    button.querySelector("img").alt = `Example: ${name}`;
     button.querySelector("span").textContent = name;
     button.addEventListener("click", async () => {
-      const blob = await (await fetch(`examples/${name}.jpg`)).blob();
-      classify(blob);
+      try {
+        classify(await (await fetchOk(`examples/${name}.jpg`)).blob());
+      } catch (err) {
+        showError(err.message);
+      }
     });
     $("examples").append(button);
   }

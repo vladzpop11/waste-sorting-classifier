@@ -10,6 +10,17 @@ export const RESIZE = 256;
 export const CROP = 224;
 export const MEAN = [0.485, 0.456, 0.406];
 export const STD = [0.229, 0.224, 0.225];
+// Same limits as preprocess.py: bigger or more elongated images are refused.
+export const MAX_PIXELS = 25_000_000;
+export const MAX_ASPECT = 10;
+
+export function checkSize(w, h) {
+  if (w < 1 || h < 1) throw new Error("The image is empty.");
+  if (w * h > MAX_PIXELS) throw new Error(`That image is too large: ${w}x${h} pixels.`);
+  if (Math.max(w, h) / Math.min(w, h) > MAX_ASPECT) {
+    throw new Error(`That image is too elongated: ${w}x${h}.`);
+  }
+}
 
 const PRECISION_BITS = 32 - 8 - 2; // Pillow's Resample.c
 
@@ -114,6 +125,7 @@ export function roundHalfEven(x) {
 }
 
 export function preprocess(rgb, w, h) {
+  checkSize(w, h);
   const [rw, rh] = shorterSideSize(w, h);
   const resized = resize(rgb, w, h, rw, rh);
   const top = roundHalfEven((rh - CROP) / 2);
