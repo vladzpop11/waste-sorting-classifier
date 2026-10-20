@@ -2,7 +2,8 @@ IMAGE ?= waste-sorting-classifier:dev
 NAME  ?= waste-sorting-classifier
 PORT  ?= 8000
 
-.PHONY: help setup format lint test check data split baseline smoke-train train
+.PHONY: help setup format lint test check data split baseline smoke-train train export \
+        evaluate serve docker-build docker-run docker-stop docker-smoke
 
 help:  ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -38,3 +39,32 @@ smoke-train:  ## One epoch on 2 classes x 25 images on the CPU, to catch errors 
 
 train:  ## Full training (meant for a GPU; see kaggle/train.ipynb)
 	uv run python -m waste_sorting_classifier.train --output-dir artifacts/run
+
+CHECKPOINT ?= artifacts/kaggle-2026-10-20/run/efficientnet_b0/model.pt
+
+export:  ## Export CHECKPOINT to models/model.onnx, checked against PyTorch on real photos
+	uv run python -m waste_sorting_classifier.export $(CHECKPOINT)
+
+evaluate:  ## One-time test evaluation of the exported model (refuses to run again unless FORCE=1)
+	uv run python -m waste_sorting_classifier.evaluate
+
+serve:  ## Run the API locally without Docker
+	uv run uvicorn waste_sorting_classifier.api:app --host 127.0.0.1 --port $(PORT)
+
+docker-build:  ## Build the API image (needs models/model.onnx)
+	docker build --platform=linux/amd64 -t $(IMAGE) .
+
+docker-run:  ## Start the API container on localhost:$(PORT) (replaces a running one)
+	-@docker rm -f $(NAME) >/dev/null 2>&1
+	docker run --rm -d --name $(NAME) -p 127.0.0.1:$(PORT):8000 $(IMAGE)
+
+docker-stop:  ## Stop the API container
+	docker stop $(NAME)
+
+docker-smoke: docker-run  ## Start the container, check /health and /predict on tests/example.jpg, stop it
+	@for i in $$(seq 1 30); do curl -sf localhost:$(PORT)/health >/dev/null && break; sleep 1; done
+	curl -sf localhost:$(PORT)/health
+	@echo
+	curl -sf -X POST localhost:$(PORT)/predict -F file=@tests/example.jpg
+	@echo
+	docker stop $(NAME)

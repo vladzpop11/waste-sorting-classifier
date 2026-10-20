@@ -16,6 +16,7 @@ data/**
 
 models/*
 !models/.gitkeep
+!models/model.json
 
 mlruns/
 artifacts/*

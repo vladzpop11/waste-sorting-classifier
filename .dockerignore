@@ -1,0 +1,13 @@
+# Allowlist: only what the image needs is sent to the build.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!src/
+!configs/
+!models/model.onnx
+!models/model.json
+**/__pycache__
+**/*.pyc
+**/.DS_Store
