@@ -18,10 +18,10 @@ Test photos with no near-duplicate in training, evaluated once:
 
 The intervals resample whole groups of similar photos.
 
-- **Version 4 handles real waste.** Version 3, trained on studio photos only, was barely better than chance on crushed cans, broken glass and dirty paper on a concrete floor. Its own familiarity check flagged 79% of them as unfamiliar. Version 4 gets 88.7% of them right and loses nothing on studio photos.
+- **Version 4 handles real waste.** Version 3, trained on studio photos only, got 33.0% of real waste photos right: crushed cans, glass and dirty paper on a concrete floor. Always answering "trash" would score 28.5%. Its own familiarity check flagged 79% of them as unfamiliar. Version 4 gets 88.7% of them right and does about as well as version 3 on studio photos (accuracy +0.5 points, CI −1.8 to +3.1; studio trash is worse, below).
 - **The test sets measure new objects.** Photos of the same object are kept on one side of the split, with a checked guarantee, across both sources. See [Data](#data).
 - **It says when a photo is outside its setting.** A classifier must pick a class even for a photo of a person. A familiarity check flags photos unlike anything in training instead of labelling them. See [Photos the model doesn't know](#photos-the-model-doesnt-know).
-- **It is still one item, photographed from above.** Hands holding things, bins full of things and busy scenes are not in either dataset and get flagged.
+- **It is still one item, photographed from above.** Hands holding things, bins full of things and busy scenes are not in either dataset. The familiarity check should flag many of them, but it was measured on everyday photos (83.8% flagged), not on such scenes.
 
 **Try it:** [huggingface.co/spaces/VladZpp/waste-sorting-classifier](https://huggingface.co/spaces/VladZpp/waste-sorting-classifier). The model runs in your browser, so photos never leave your device.
 
@@ -140,7 +140,7 @@ Test, per source (evaluated once) ([reports/test_metrics.json](reports/test_metr
 | trash | 0.924 (0.885–0.958) | 113 | 0.800 (0.632–0.919) | 19 |
 | **Macro F1** | **0.883** | 397 | **0.930** | 366 |
 
-- **Weakest: real-waste metal.** Its recall is 73%: crushed cans and foil are called plastic or trash.
+- **Weakest: real-waste metal and studio trash** (F1 0.807 and 0.800). Real-waste metal, with 60 test photos, has the lowest recall, 73%: crushed cans and foil are called plastic or trash.
 - **Studio trash got worse than in version 3:** F1 0.800 against 0.889. Trash now has 685 training photos instead of 98, mostly real waste, and more studio paper is called trash. With 19 test photos the interval is wide.
 - **Studio macro F1 is slightly lower than version 3's,** 0.930 against 0.936, although accuracy is slightly higher.
 
@@ -224,7 +224,7 @@ Most errors are uncertain: 60 of the 64 test errors were below 90% confidence.
 
 ## Limitations
 
-- **Still one item, from above.** Both datasets show a single item photographed from above, on a white background or a concrete floor. Hands, bins full of things, piles and busy scenes are outside what the model has learned. The familiarity check flags most of them rather than answering.
+- **Still one item, from above.** Both datasets show a single item photographed from above, on a white background or a concrete floor. Hands, bins full of things, piles and busy scenes are outside what the model has learned. The familiarity check is expected to flag many of them rather than answer, but it was not measured on such photos.
 - **Real-world accuracy beyond these two datasets is unknown.** RealWaste comes from one landfill in Australia; other places, lighting and cameras were not tested.
 - **The familiarity check is not a guarantee.**
   - It lets through 16% of everyday photos, and 10% pass with 70% confidence or more.

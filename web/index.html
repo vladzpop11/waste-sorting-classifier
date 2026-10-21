@@ -138,7 +138,7 @@
   <p class="status" id="status" role="status" aria-live="polite">Loading the model (16 MB)…</p>
 
   <footer>
-    <p>EfficientNet-B0 fine-tuned on studio photos (TrashNet) and real waste photographed at a landfill (RealWaste), exported to ONNX; it runs here with ONNX Runtime Web. On test photos with no near-duplicate in training: 88.7% accuracy on real waste and 94.8% on studio photos. The weakest class is real-waste metal (crushed cans and foil).</p>
+    <p>EfficientNet-B0 fine-tuned on studio photos (TrashNet) and real waste photographed at a landfill (RealWaste), exported to ONNX; it runs here with ONNX Runtime Web. On test photos with no near-duplicate in training: 88.7% accuracy on real waste and 94.8% on studio photos. The weakest classes are real-waste metal (crushed cans and foil) and studio trash.</p>
     <p>It knows photos of one item, taken from above, on a plain background or an ordinary floor. Hands, bins full of things, people, landscapes and busy scenes are outside what it has learned: the page checks how familiar each photo looks to the model and says so when it is not a photo the model knows (it flagged 84% of everyday photos in testing). The examples are the first validation photo per class and source that the model gets right, so they show what it handles, not how often it fails.</p>
     <p>Model trained on <a href="https://github.com/garythung/trashnet">TrashNet</a> (MIT) and <a href="https://archive.ics.uci.edu/dataset/908/realwaste">RealWaste</a> (CC BY-NC-SA 4.0); the model is CC BY-NC-SA 4.0. <a href="https://github.com/vladzpop11/waste-sorting-classifier">Code, data handling and evaluation on GitHub</a>.</p>
   </footer>

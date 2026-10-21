@@ -47,7 +47,7 @@ The guarantee stops at the threshold. Just below it, validation and test photos 
 | ≥ 0.84 | 74 | 100 |
 | ≥ 0.80 | 241 | 269 |
 
-The test score could therefore still be slightly optimistic for objects photographed many times. The README reports test accuracy by similarity to the nearest training photo: it is 97.8% for photos with a training neighbour at ≥ 0.80, and lower for photos further from anything in training.
+The test score could therefore still be slightly optimistic for objects photographed many times. The README reports test accuracy by similarity to the nearest training photo: it is 98.2% (267 of 272) for TrashNet photos with a training neighbour at ≥ 0.80, and lower for photos further from anything in training.
 
 **One very large group.** Joining every pair at ≥ 0.86 also chains photos together: A resembles B, B resembles C, and so on. The largest group, 77 plastic photos, is such a chain, and very likely holds several different objects. StratifiedGroupKFold had to put it somewhere, and it fell into test, where it is the whole plastic class. Two consequences:
 

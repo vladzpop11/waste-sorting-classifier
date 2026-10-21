@@ -68,7 +68,8 @@ train:
   num_workers: auto
 
 # The familiarity check (familiarity.py): is a photo like the training photos at all?
-# Score: cosine similarity of the model's features to the nearest training photo. Rule,
+# Score (version 4): minus the Mahalanobis distance from the model's features to the
+# nearest class mean of the training features (version 3: nearest training photo). Rule,
 # fixed before measuring it: the threshold lets 95% of validation photos through.
 # Everyday photos for measuring it: Imagenette (fast.ai), a 10-class ImageNet subset; its
 # validation photos only, shuffled with seed 0. The first 1,500 were used to choose the

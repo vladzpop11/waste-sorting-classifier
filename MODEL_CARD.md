@@ -41,8 +41,7 @@ The test set was evaluated once. Version 3 (trained on studio photos only) was s
 | TrashNet (366) | 94.8% (91.4–97.3%) | 0.930 | 94.3% | +0.5 points (−1.8 to +3.1) |
 | Both (763) | 91.6% (88.1–94.3%) | 0.916 | | |
 
-- **Weakest class:** real-waste metal, F1 0.807 (recall 73%). Crushed cans and foil are called plastic or trash.
-- **Studio trash got worse** than in version 3 (F1 0.800 against 0.889, on only 19 test photos).
+- **Weakest classes:** studio trash, F1 0.800, worse than version 3's 0.889 (only 19 test photos); and real-waste metal, F1 0.807, with the lowest recall (73%): crushed cans and foil are called plastic or trash.
 - **Confidence:** the model is underconfident (expected calibration error 0.060). Answers at 90% confidence or more were right 99.1% of the time on test (446 photos).
 - **Unfamiliar photos are harder:** test photos far from every training photo of their class score lower, for example 79.3% on RealWaste photos whose nearest training photo is at similarity 0.75–0.80.
 
