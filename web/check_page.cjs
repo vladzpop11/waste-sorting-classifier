@@ -12,6 +12,7 @@
 const fs = require("fs");
 const path = require("path");
 const [url, fixtures, imagesDir, shots] = process.argv.slice(2);
+fs.mkdirSync(shots, { recursive: true });
 const softmax = (l) => { const m = Math.max(...l); const e = l.map((v) => Math.exp(v - m)); const s = e.reduce((a, b) => a + b); return e.map((v) => v / s); };
 const argmax = (a) => a.indexOf(Math.max(...a));
 const PROBABILITY_TOLERANCE = Number(process.env.TOLERANCE || 1e-4); // decoders may differ slightly
