@@ -5,8 +5,10 @@
 // - transparency: alpha channels, palette alpha (tRNS), and a single transparent grey or
 //   RGB colour (tRNS), compared with the raw tRNS values as Pillow does;
 // - the default image (IDAT) of an animated PNG, as Pillow uses;
-// - damaged files are refused where Pillow refuses them: a bad checksum in a chunk before
-//   the image data, image data that ends early, an unknown filter.
+// - damaged files are refused where Pillow refuses them: a bad checksum or an invalid name
+//   in a chunk before the image data, a chunk too short for Pillow's reader of it, a chunk
+//   after the image data cut off by the end of the file, image data that ends early, an
+//   unknown filter.
 // Memory: the inflated rows are unfiltered in place, so a decode holds the compressed
 // data, the raw rows and the 8-bit output.
 import { ImageError, pngChunks } from "./image-header.js";
@@ -26,6 +28,10 @@ function crc32(bytes) {
 
 const damaged = () => new ImageError("That file could not be read as an image: it may be damaged.");
 const CHANNELS = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+// The shortest chunk each of Pillow's chunk readers accepts (PngImagePlugin), before or
+// after the image data; tRNS depends on the colour type.
+const MIN_LENGTH = { IHDR: 13, gAMA: 4, cHRM: 32, sRGB: 1, pHYs: 9, acTL: 8, fcTL: 26 };
+const MIN_TRNS = { 0: 2, 2: 6 };
 const DEPTHS = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] };
 // Adam7 passes: x0, y0, dx, dy.
 const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
@@ -64,25 +70,33 @@ function sample(row, i, depth) {
 
 // -> { width, height, channels: 3 | 4, data } (8-bit, not yet flattened)
 export async function decodePng(bytes) {
-  let ihdr = null, palette = null, trns = null, seenData = false, inData = false;
-  const idat = [];
+  let ihdr = null, palette = null, trns = null, colour = null, lastCut = false;
+  const idat = []; // the first run of IDAT chunks is the image
   for (const c of pngChunks(bytes)) {
-    if (c.type === "IDAT") {
-      if (seenData && !inData) break; // only the first run of IDAT chunks is the image
-      seenData = inData = true;
+    if (c.phase === 1) {
       idat.push(c.data);
+      lastCut = c.cut;
       continue;
     }
-    inData = false;
-    if (seenData) continue;
-    const typeAndData = bytes.subarray(c.at + 4, c.at + 8 + c.data.length);
-    const stored = new DataView(bytes.buffer, bytes.byteOffset + c.at + 8 + c.data.length, 4).getUint32(0);
-    if (crc32(typeAndData) !== stored) throw damaged(); // Pillow checks every chunk before IDAT
+    if (c.cut || !c.named) throw damaged();
+    if (c.phase === 0) {
+      const crcAt = c.at + 8 + c.data.length;
+      if (crcAt + 4 > bytes.length) throw damaged();
+      const stored = new DataView(bytes.buffer, bytes.byteOffset + crcAt, 4).getUint32(0);
+      if (crc32(bytes.subarray(c.at + 4, crcAt)) !== stored) throw damaged(); // Pillow checks every chunk before IDAT
+    }
+    const min = c.type === "tRNS" ? MIN_TRNS[colour] : MIN_LENGTH[c.type];
+    if (c.data.length < (min ?? 0)) throw damaged();
+    if (c.type === "IHDR") {
+      if (c.data[11]) throw damaged(); // unknown filter method
+      if (DEPTHS[c.data[9]]?.includes(c.data[8])) colour = c.data[9];
+    }
+    if (c.phase === 2) continue; // read by Pillow, but not used for the image
     if (c.type === "IHDR") ihdr = c.data; // the last one before IDAT, like Pillow
     else if (c.type === "PLTE") palette = c.data;
     else if (c.type === "tRNS") trns = c.data;
   }
-  if (!ihdr || ihdr.length < 13 || !idat.length) throw damaged();
+  if (!ihdr || !idat.length) throw damaged();
   const dv = new DataView(ihdr.buffer, ihdr.byteOffset, 13);
   const width = dv.getUint32(0), height = dv.getUint32(4);
   const depth = ihdr[8], type = ihdr[9], interlaced = ihdr[12] === 1;
@@ -100,8 +114,14 @@ export async function decodePng(bytes) {
   const total = idat.reduce((n, d) => n + d.length, 0);
   const compressed = new Uint8Array(total);
   idat.reduce((o, d) => (compressed.set(d, o), o + d.length), 0);
-  // Like Pillow, a stream damaged only after the pixel data (e.g. its checksum) is fine.
+  // Pillow stops reading the image data once every row is there (the zlib checksum is not
+  // always checked; README). A later IDAT chunk cut off by the end of the file is then read
+  // as an ordinary chunk, and refused.
   const raw = new Uint8Array(expected);
+  if (lastCut && idat.length > 1) {
+    const before = compressed.subarray(0, total - idat[idat.length - 1].length);
+    if (inflateInto(before, raw).filled >= expected) throw damaged();
+  }
   if (inflateInto(compressed, raw).filled < expected) throw damaged();
 
   // Transparency, as Pillow's convert("RGBA") applies it.

@@ -102,16 +102,18 @@ Two sources, both downloaded and checked by `make data`: archive SHA-256 and pub
      - PNG with its own decoder ([png.js](web/png.js)), using a JavaScript zlib (fflate) so that every browser behaves the same;
      - transparency flattened with Pillow's arithmetic;
      - EXIF and XMP orientation read exactly where and how Pillow reads them ([image-header.js](web/image-header.js)).
-   - **Preprocessing in JavaScript:** [preprocess.js](web/preprocess.js) reproduces Pillow's fixed-point bilinear resize and Python's round-half-to-even centre crop.
+   - **Preprocessing in JavaScript:** [preprocess.js](web/preprocess.js) reproduces Pillow 13's fixed-point bilinear resize, including its choice of which direction to resize first (vertical first for photos taller than about 2:1), and Python's round-half-to-even centre crop.
    - **Proof:** `make check-web` (with `BROWSER=chrome`, `webkit` or `firefox`) runs three checks:
-     - the page's decoding gives pixels identical to Python's on all 758 validation photos of both sources, on 129 unusual files (every EXIF and XMP layout, 1- to 16-bit and interlaced PNG, transparency, 4:4:0, arithmetic-coded and lossless JPEG, MPO and more), and on 30 everyday photos;
-     - 26 damaged or hostile files are refused, as the API refuses them, including decompression bombs and a file that once froze the page;
-     - the real page, in Chrome, WebKit (Safari's engine) and Firefox, gives Python's prediction and familiarity decision for every validation photo, with probabilities within 3e-6.
-   - **Fuzzing:** about 35,000 randomly mutated JPEG, PNG and WebP files were compared between the page and Python. None hung, crashed or used unbounded memory; the slowest took under a second. Every class of difference found is either fixed or listed below, and one file per class is kept in the tests ([tests/data/web-edge](tests/data/web-edge)).
-   - **Documented differences:** 11 files are handled differently from Python, each checked to stay that way ([web_edge_cases.py](src/waste_sorting_classifier/web_edge_cases.py)):
+     - the page's decoding gives pixels identical to Python's on all 758 validation photos of both sources, on 139 unusual files (every EXIF and XMP layout, 1- to 16-bit and interlaced PNG, transparency, tall photos, 4:4:0, arithmetic-coded and lossless JPEG, MPO and more), and on 30 everyday photos;
+     - 46 damaged or hostile files are refused, as the API refuses them, including decompression bombs and a file that once froze the page;
+     - the real page, in Chrome, WebKit (Safari's engine) and Firefox, gives Python's prediction and familiarity decision for every validation photo and every unusual file it decodes as Python does, with probabilities within 3e-6.
+   - **Fuzzing:** about 57,000 randomly mutated JPEG, PNG and WebP files were compared between the page and Python, 22,000 of them after the move to Pillow 13. None hung, crashed or used unbounded memory; the slowest took under a second. Every class of difference found is either fixed or listed below, and one file per class is kept in the tests ([tests/data/web-edge](tests/data/web-edge)).
+   - **Documented differences:** 12 files are handled differently from Python, each checked to stay that way ([web_edge_cases.py](src/waste_sorting_classifier/web_edge_cases.py)):
      - two valid kinds the page refuses with a message, although the API accepts them: CMYK JPEGs (from print workflows) and animated WebP;
      - files that break their format's rules, such as a PNG palette image without a palette or a JPEG without its end marker. Pillow tolerates some of these and rejects others; the page sometimes decides the other way. It never just stops responding: it either shows a result or explains that it can't read the file.
      - JPEGs with corrupt image data, which Pillow decodes with a warning, are refused by the page.
+     - damaged metadata that Pillow only trips over late: EXIF values it cannot write back after rotating, or a one-character EXIF resolution. Pillow refuses these files; the page shows a result.
+     - a PNG whose zlib checksum is wrong although the image data is complete. Pillow refuses it only when it happens to read the checksum together with the last row; the page decodes it.
 
 ## Results
 

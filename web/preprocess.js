@@ -4,7 +4,8 @@
 //   two passes, 22-bit fixed-point coefficients, the same rounding), centre-crop 224x224
 //   (Python's round-half-to-even), scale to [0, 1], normalise with the ImageNet mean/std.
 // Input and intermediate images are RGB Uint8Arrays, row-major, 3 bytes per pixel.
-// Verified against the Python code on all 360 validation photos (web/check_preprocess.mjs).
+// Verified against the Python code on all 758 validation photos (web/check_preprocess.mjs)
+// and, for tall and unusual images, through the page (web/check_page.cjs).
 
 export const RESIZE = 256;
 export const CROP = 224;
@@ -105,11 +106,18 @@ function resizeVertical(src, w, h, outH) {
   return out;
 }
 
-// Pillow resizes horizontally first, then vertically, skipping a pass that changes nothing.
+// Pillow 13 (Resample.c) resizes horizontally first, then vertically, unless the height
+// shrinks by more than twice as much as the width (tall photos): then vertically first. A
+// pass that changes nothing is skipped. The order changes the rounding between passes.
 export function resize(src, w, h, outW, outH) {
   let data = src;
-  if (outW !== w) data = resizeHorizontal(data, w, h, outW);
-  if (outH !== h) data = resizeVertical(data, outW, h, outH);
+  if (h - outH > 0 && h - outH > (w - outW) * 2) {
+    if (outH !== h) data = resizeVertical(data, w, h, outH);
+    if (outW !== w) data = resizeHorizontal(data, w, outH, outW);
+  } else {
+    if (outW !== w) data = resizeHorizontal(data, w, h, outW);
+    if (outH !== h) data = resizeVertical(data, outW, h, outH);
+  }
   return data;
 }
 

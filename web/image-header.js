@@ -3,9 +3,10 @@
 // file is complete, and the EXIF orientation exactly as Pillow's ImageOps.exif_transpose
 // finds it (src/waste_sorting_classifier/preprocess.py):
 // - JPEG: every APP1 "Exif" segment, concatenated; XMP from the last XMP segment;
-// - PNG: the last eXIf chunk, else a "Raw profile type exif" text chunk; XMP from iTXt;
+// - PNG: the last eXIf chunk or text chunk keyed "exif", else a "Raw profile type exif"
+//   text chunk; XMP from iTXt;
 // - WebP: the first EXIF and XMP chunks, when the VP8X header (first chunk) announces them;
-// - in EXIF, any number of "Exif\0\0" prefixes, then a TIFF directory read like Pillow's
+// - in EXIF, at most two "Exif\0\0" prefixes, then a TIFF directory read like Pillow's
 //   ImageFileDirectory_v2; XMP's tiff:Orientation only when EXIF has none.
 // Every read is bounded by the file and by the block it belongs to: hostile files are
 // refused or ignored, never followed outside their data. Valid files match Pillow exactly;
@@ -39,8 +40,9 @@ export function sniffFormat(b) {
 // - out-of-line data counts towards a total for the whole directory; an entry that takes
 //   the total past the block's size is skipped, and one whose data runs past the end of the
 //   block stops the directory, keeping what was read before it;
-// - the first stored entry for a tag wins; numeric types give their first value, byte and
-//   string types never match an orientation.
+// - the first stored entry for a tag wins, and later entries for that tag are skipped
+//   before anything else (they add nothing to the total); numeric types give their first
+//   value, byte and string types never match an orientation.
 // Returns the value (NaN when not numeric) or null when there is none.
 export class ExifError extends Error {}
 const UNIT = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8, 13: 4, 16: 8 };
@@ -66,8 +68,8 @@ function firstValue(b, at, type, le) {
 }
 
 export function exifOrientation(exif) {
-  let s = 0;
-  while (s + 6 <= exif.length && ascii(exif, s, 6) === "Exif\0\0") s += 6;
+  let s = 0; // Pillow 13 strips one or two prefixes; a third is not a TIFF header
+  for (let k = 0; k < 2 && s + 6 <= exif.length && ascii(exif, s, 6) === "Exif\0\0"; k++) s += 6;
   const b = exif.subarray(s);
   if (b.length === 0) return null;
   const prefix = ascii(b, 0, 4);
@@ -80,12 +82,13 @@ export function exifOrientation(exif) {
   if (ifd + 2 > b.length) return null;
   let found = null;
   let outOfLine = 0;
+  const stored = new Set();
   const count = u16(b, ifd, le);
   for (let i = 0; i < count; i++) {
     const e = ifd + 2 + i * 12;
     if (e + 12 > b.length) break;
     const tag = u16(b, e, le), type = u16(b, e + 2, le), n = u32(b, e + 4, le);
-    if (tag === 0x0112 && found !== null) continue; // the first stored entry wins
+    if (stored.has(tag)) continue; // the first stored entry wins
     if (!UNIT[type]) continue;
     const size = UNIT[type] * n;
     let at = e + 8;
@@ -96,6 +99,7 @@ export function exifOrientation(exif) {
       if (at + size > b.length) break; // a truncated read stops the directory
     }
     if (size === 0) continue;
+    stored.add(tag);
     if (tag === 0x0112) found = firstValue(b, at, type, le);
   }
   return found;
@@ -151,9 +155,38 @@ function inflateLimited(data) {
 
 // JPEG segments up to the first scan. Fill bytes (0xFF runs) and stray bytes between
 // segments are skipped like libjpeg does; standalone markers carry no length.
+const unreadable = () => new ImageError("That file could not be read as an image.");
+
+const compareBytes = (x, y) => {
+  for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i];
+  return x.length - y.length;
+};
+
+// Pillow parses Photoshop resource blocks (APP13) and raises on a resource name length
+// past the segment's end; a block cut short otherwise just ends the parse.
+function checkPhotoshop(s) {
+  let o = 14;
+  while (ascii(s, o, 4) === "8BIM") {
+    o += 4;
+    if (o + 2 > s.length) return;
+    const code = u16(s, o, false);
+    o += 2;
+    if (o >= s.length) throw unreadable();
+    o += 1 + s[o];
+    o += o & 1;
+    if (o + 4 > s.length) return;
+    const size = u32(s, o, false);
+    o += 4;
+    if (code === 0x03ed && Math.min(size, Math.max(0, s.length - o)) < 14) return; // ResolutionInfo
+    o += size;
+    o += o & 1;
+  }
+}
+
 function jpegHeader(b) {
   let width = 0, height = 0, components = 0, scanAt = -1;
   const exif = [];
+  const icc = []; // ICC_PROFILE segments since the last frame header
   let xmp = null, dpi = false;
   const junk = []; // stray bytes before markers, which libjpeg skips with a warning
   let o = 2;
@@ -165,17 +198,31 @@ function jpegHeader(b) {
     while (o < b.length && b[o] === 0xff) o++;
     if (o >= b.length) break;
     const marker = b[o++];
-    if (marker === 0x01) throw new ImageError("That file could not be read as an image."); // TEM: Pillow refuses
+    if (marker === 0x01) throw unreadable(); // TEM: Pillow refuses
     if (marker === 0x00 || (marker >= 0xd0 && marker <= 0xd8)) continue;
     if (marker === 0xd9 || o + 2 > b.length) break;
     const length = u16(b, o, false);
     if (length < 2 || o + length > b.length) break;
     const data = b.subarray(o + 2, o + length);
     if (marker === 0xda) { scanAt = o + length; break; }
-    if (marker === 0xe0 && ascii(data, 0, 5) === "JFIF\0" && data.length >= 12 && (data[7] === 1 || data[7] === 2)) dpi = true;
+    // Pillow's APP handler: JFIF (no NUL needed) always has its version read, and gives a
+    // dpi when the density is all there; Adobe has its version read; ICC segments are
+    // checked at the next frame header; Photoshop resource blocks are parsed.
+    if (marker === 0xe0 && ascii(data, 0, 4) === "JFIF") {
+      if (data.length < 7) throw unreadable();
+      if (data.length >= 12 && (data[7] === 1 || data[7] === 2)) dpi = true;
+    }
+    if (marker === 0xee && ascii(data, 0, 5) === "Adobe" && data.length < 7) throw unreadable();
+    if (marker === 0xe2 && ascii(data, 0, 12) === "ICC_PROFILE\0") icc.push(data);
+    if (marker === 0xed && ascii(data, 0, 14) === "Photoshop 3.0\0") checkPhotoshop(data);
     if (marker === 0xe1 && ascii(data, 0, 6) === "Exif\0\0") exif.push(exif.length ? data.subarray(6) : data);
     else if (marker === 0xe1 && ascii(data, 0, 29) === "http://ns.adobe.com/xap/1.0/\0") xmp = latin1(data.subarray(29));
     const sof = marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker);
+    if (sof && icc.length) {
+      // Pillow sorts them and reads the fragment count of the first.
+      if (icc.reduce((m, x) => (compareBytes(x, m) < 0 ? x : m)).length < 14) throw unreadable();
+      icc.length = 0;
+    }
     if (sof && data.length >= 6 && !width) {
       height = u16(data, 1, false);
       width = u16(data, 3, false);
@@ -206,15 +253,26 @@ function jpegHeader(b) {
   return { width, height, components, complete, orientation, decodeBytes };
 }
 
-// PNG chunks up to IEND; a chunk that does not fit in the file ends the walk.
+// PNG chunks as Pillow reads them, up to IEND, each with its phase: 0 before the image
+// data, 1 in its first run of IDAT chunks, 2 after it.
+// - A chunk whose data is cut off by the end of the file is yielded with the data there
+//   is, marked `cut`, and ends the walk. A missing checksum alone is not a cut.
+// - `named`: whether the type is four word characters; Pillow refuses a file with another
+//   name before the image data.
+// - After the image data the walk stops, as Pillow's load_end does, at an invalid name or
+//   at fcTL (the next APNG frame).
 export function* pngChunks(b) {
-  for (let o = 8; o + 12 <= b.length; ) {
-    const size = u32(b, o, false);
-    if (o + 12 + size > b.length) return;
-    const type = ascii(b, o + 4, 4);
-    yield { type, at: o, data: b.subarray(o + 8, o + 8 + size) };
-    if (type === "IEND") return; // Pillow stops here
-    o += 12 + size;
+  let phase = 0;
+  for (let o = 8; o + 8 <= b.length; ) {
+    const size = u32(b, o, false), type = ascii(b, o + 4, 4), end = o + 8 + size;
+    if (phase === 0 && type === "IDAT") phase = 1;
+    else if (phase === 1 && type !== "IDAT") phase = 2;
+    const named = /^\w{4}$/.test(type);
+    if (phase === 2 && (!named || type === "fcTL")) return;
+    const cut = end > b.length;
+    yield { type, at: o, data: b.subarray(o + 8, Math.min(end, b.length)), cut, named, phase };
+    if (cut || type === "IEND") return;
+    o = end + 4;
   }
 }
 
@@ -229,21 +287,24 @@ function codePoints(bytes) {
 const NEEDED = new Set(["Raw profile type exif", "XML:com.adobe.xmp"]);
 const textOf = (key, value) => (NEEDED.has(key) ? latin1(value) : "");
 
-// A PNG text chunk as Pillow reads it -> { key, text, xmpBytes, length } or null (ignored).
+// A PNG text chunk as Pillow reads it -> { key, text, xmpBytes, length, exif } or null
+// (ignored). A chunk keyed "exif" becomes Pillow's EXIF: tEXt as its raw bytes, zTXt and
+// iTXt as text (EXIF_TEXT), which Pillow then fails to parse.
+const EXIF_TEXT = "text";
 function pngText(chunk) {
   const d = chunk.data;
   const nul = d.indexOf(0);
   if (chunk.type === "tEXt") {
     const key = latin1(nul < 0 ? d : d.subarray(0, nul));
     const value = nul < 0 ? new Uint8Array() : d.subarray(nul + 1);
-    return key ? { key, text: textOf(key, value), length: value.length } : null;
+    return key ? { key, text: textOf(key, value), length: value.length, exif: value } : null;
   }
   if (chunk.type === "zTXt") {
     const key = latin1(nul < 0 ? d : d.subarray(0, nul));
     const rest = nul < 0 ? new Uint8Array() : d.subarray(nul + 1);
     if (rest.length && rest[0] !== 0) throw new ImageError("That file could not be read as an image.");
     const value = inflateLimited(rest.subarray(1)) ?? new Uint8Array();
-    return key ? { key, text: textOf(key, value), length: value.length } : null;
+    return key ? { key, text: textOf(key, value), length: value.length, exif: EXIF_TEXT } : null;
   }
   // iTXt: keyword, compression flag, method, language tag, translated keyword, text.
   if (nul < 0 || d.length - nul - 1 < 2) return null;
@@ -267,7 +328,7 @@ function pngText(chunk) {
   } catch {
     return { key: null, xmpBytes };
   }
-  return { key, text: NEEDED.has(key) ? text : "", xmpBytes, length: codePoints(value) };
+  return { key, text: NEEDED.has(key) ? text : "", xmpBytes, length: codePoints(value), exif: EXIF_TEXT };
 }
 
 // An iCCP colour profile is not used, but Pillow refuses one it cannot safely decompress.
@@ -278,30 +339,45 @@ function checkIccp(chunk) {
   inflateLimited(d.subarray(nul + 2));
 }
 
+// bytes.fromhex: pairs of hex digits, with ASCII whitespace allowed only between pairs.
+function fromHex(text) {
+  const out = new Uint8Array(text.length >> 1);
+  let n = 0;
+  for (let i = 0; ; ) {
+    while (i < text.length && " \t\n\r\v\f".includes(text[i])) i++;
+    if (i >= text.length) return out.subarray(0, n);
+    const pair = text.slice(i, i + 2);
+    if (!/^[0-9a-fA-F]{2}$/.test(pair)) throw unreadable();
+    out[n++] = parseInt(pair, 16);
+    i += 2;
+  }
+}
+
+const EXIF_PREFIX = new Uint8Array([0x45, 0x78, 0x69, 0x66, 0, 0]); // "Exif\0\0"
+
 async function pngHeader(b) {
   let exif = null, ihdr = null, seenData = false, memory = 0, xmpRaw = null;
   const info = {}; // Pillow's im_info for the keys that matter: the last chunk wins
   for (const c of pngChunks(b)) {
+    if (c.cut || !c.named) break; // Pillow refuses the file (png.js does)
     if (c.type === "IDAT") seenData = true;
     if (c.type === "IHDR" && !seenData && c.data.length >= 13) ihdr = c.data; // as png.js uses
-    if (c.type === "eXIf") exif = c.data; // Pillow keeps the last
+    if (c.type === "eXIf") exif = concat([EXIF_PREFIX, c.data]); // Pillow adds one; the last wins
     if (c.type === "iCCP") checkIccp(c);
     if (c.type === "tEXt" || c.type === "zTXt" || c.type === "iTXt") {
       const t = pngText(c);
       if (!t) continue;
       if (t.xmpBytes !== null && t.xmpBytes !== undefined) xmpRaw = t.xmpBytes;
       if (t.key === null) continue;
+      if (t.key === "exif") exif = t.exif;
       info[t.key] = t.text;
       memory += t.length;
       if (memory > MAX_TEXT_MEMORY) throw tooMuch();
     }
   }
+  if (exif === EXIF_TEXT) throw new ImageError("That file's metadata is damaged, so it could not be read.");
   const rawProfile = info["Raw profile type exif"];
-  if (!exif && rawProfile !== undefined) {
-    const hex = rawProfile.split("\n").slice(3).join("").replace(/\s+/g, "");
-    if (!/^([0-9a-fA-F]{2})*$/.test(hex)) throw new ImageError("That file could not be read as an image.");
-    exif = Uint8Array.from(hex.match(/../g) || [], (h) => parseInt(h, 16));
-  }
+  if (!exif && rawProfile !== undefined) exif = fromHex(rawProfile.split("\n").slice(3).join(""));
   // Pillow: XMP stored under its own key (any text chunk) first, then raw iTXt XMP.
   const xmp = info["XML:com.adobe.xmp"] || xmpRaw || null;
   return {

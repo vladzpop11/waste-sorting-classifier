@@ -21,15 +21,33 @@ from PIL import Image
 KNOWN_DIFFERENCES = {
     "cmyk.jpg": ("refuses", "the WebAssembly JPEG decoder does not convert CMYK"),
     "animated.webp": ("refuses", "the WebAssembly WebP decoder does not read animations"),
+    "fuzz-exif-cannot-be-rewritten.jpg": (
+        "decodes",
+        "after rotating, Pillow writes the EXIF back and fails on values that do not fit "
+        "their tag's type (Pillow refuses it)",
+    ),
+    "fuzz-jpeg-dpi-from-exif-indexerror.jpg": (
+        "decodes",
+        "a one-character EXIF resolution, which Pillow fails to read as a dpi (it refuses it)",
+    ),
+    "fuzz-jpeg-icc-empty-profile.jpg": (
+        "refuses",
+        "an ICC segment with no profile data stops the WebAssembly decoder (Pillow accepts it)",
+    ),
     "fuzz-jpeg-no-eoi-padding.jpg": ("refuses", "no end-of-image marker (Pillow accepts it)"),
-    "fuzz-png-bad-chunk-name.png": ("decodes", "invalid chunk name (Pillow refuses it)"),
+    "fuzz-png-bad-adler.png": (
+        "decodes",
+        "a wrong zlib checksum after complete image data (Pillow refuses it when it reads "
+        "the checksum together with the last row)",
+    ),
     "fuzz-png-compression-byte-1.png": ("refuses", "unknown compression method in IHDR"),
-    "fuzz-png-last-idat-crc-missing.png": ("refuses", "last chunk cut short (Pillow accepts it)"),
     "fuzz-png-no-plte.png": ("refuses", "palette image without a palette"),
-    "fuzz-png-rgb-short-trns.png": ("decodes", "tRNS chunk too short (Pillow refuses it)"),
-    "fuzz-png-short-gama.png": ("decodes", "gAMA chunk too short (Pillow refuses it)"),
     "fuzz-png-trns-after-idat.png": ("differs", "tRNS after the image data (Pillow applies it)"),
     "fuzz-png-zlib-no-adler.png": ("refuses", "image data stream without its checksum"),
+    "fuzz-webp-corrupt-lossy.webp": (
+        "differs",
+        "corrupt lossy data decodes to a few different pixels (libwebp version)",
+    ),
 }
 
 
@@ -353,7 +371,14 @@ def format_cases(photo: Image.Image, icc_profile: bytes | None) -> dict[str, byt
     rgba.putalpha(alpha)
     la = photo.convert("L")
     la.putalpha(alpha)
+    # Taller than about 2:1, Pillow 13 resizes vertically first (web/preprocess.js).
+    tall = photo.rotate(90, expand=True).resize((300, 1000), Image.Resampling.LANCZOS)
     cases = {
+        "tall.png": _encode(tall, "PNG"),
+        "tall.jpg": _encode(tall, "JPEG", quality=92),
+        "tall-rotated.jpg": _encode(  # stored wide, upright after EXIF rotation
+            tall.rotate(90, expand=True), "JPEG", quality=92, exif=_exif(6)
+        ),
         "rgba.png": _encode(rgba, "PNG"),
         "rgba.webp": _encode(rgba, "WEBP", lossless=True),
         "rgba-lossy.webp": _encode(rgba, "WEBP", quality=90),
