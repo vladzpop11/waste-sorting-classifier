@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Hugging Face serves large files (model.onnx, the WebAssembly runtime) from its CDN via a redirect;
+<!-- Hugging Face serves large files (model.onnx, the WebAssembly runtime, larger example photos) from its CDN via a redirect;
      the model is still checked against its SHA-256 in model-info.js before use. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://*.hf.co https://*.huggingface.co; img-src 'self' data:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://*.hf.co https://*.huggingface.co; img-src 'self' data: https://*.hf.co https://*.huggingface.co; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'">
 <title>Waste Sorting Classifier</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%99%BB%EF%B8%8F%3C/text%3E%3C/svg%3E">
 <meta name="description" content="Classify a photo of waste into six recycling categories. The model runs in your browser: photos never leave your device.">
