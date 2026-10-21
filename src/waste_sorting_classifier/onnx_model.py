@@ -21,6 +21,9 @@ class OnnxClassifier:
         options.intra_op_num_threads = threads
         self.session = ort.InferenceSession(str(path), options, providers=["CPUExecutionProvider"])
         self.classes: list[str] = self.meta["classes"]
+        # Temperature scaling (calibrate.py; 1 when not calibrated): it changes the
+        # probabilities, never the label.
+        self.temperature: float = self.meta.get("calibration", {}).get("temperature", 1.0)
 
     def run(self, batch: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """(N, 3, 224, 224) preprocessed images -> (logits, features)."""
@@ -32,7 +35,11 @@ class OnnxClassifier:
     def predict_proba(self, batch: np.ndarray) -> np.ndarray:
         """(N, 3, 224, 224) preprocessed images -> (N, classes) probabilities."""
         logits = self.session.run(["logits"], {"image": batch.astype(np.float32)})[0]
-        return softmax(logits)
+        return self.probabilities(logits)
+
+    def probabilities(self, logits: np.ndarray) -> np.ndarray:
+        """Calibrated probabilities from the model's logits."""
+        return softmax(logits / self.temperature)
 
 
 def softmax(logits: np.ndarray) -> np.ndarray:

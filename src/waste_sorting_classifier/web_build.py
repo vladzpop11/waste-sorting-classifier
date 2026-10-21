@@ -52,7 +52,8 @@ def main() -> None:
                 wasm[name] = expected
             files += 1
     meta = json.loads(project_path("models/model.json").read_text())
-    info = {"arch": meta["arch"], "classes": meta["classes"], "sha256": meta["onnx_sha256"]}
+    info = {"arch": meta["arch"], "classes": meta["classes"], "sha256": meta["onnx_sha256"],
+            "temperature": meta.get("calibration", {}).get("temperature", 1.0)}  # fmt: skip
     fam = meta["familiarity"]
     info["familiarity"] = {k: fam[k] for k in ["method", "file", "sha256", "classes", "dims",
                                                "threshold"]}  # fmt: skip

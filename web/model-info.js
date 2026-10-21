@@ -11,6 +11,7 @@ export const MODEL = {
     "trash"
   ],
   "sha256": "536ae512fd303bc4710c4e52e66edca463f832f2d3068e64f34271f3e30bebf7",
+  "temperature": 0.7424868605879112,
   "familiarity": {
     "method": "mahalanobis",
     "file": "familiarity.bin",
@@ -20,9 +21,9 @@ export const MODEL = {
     "threshold": -5855.972243745473
   },
   "lowConfidence": {
-    "threshold": 0.9,
-    "accuracyBelow": 0.8461538461538461,
-    "accuracyAbove": 0.9910313901345291
+    "threshold": 0.97,
+    "accuracyBelow": 0.8436482084690554,
+    "accuracyAbove": 0.991130820399113
   }
 };
 export const WASM = {

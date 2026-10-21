@@ -194,6 +194,7 @@ def main() -> None:
     old_logits, old_features = run_model(old_model, paths)
 
     classes = model.classes
+    # Uncalibrated: calibration (calibrate.py) was added after this one-time evaluation.
     proba, old_proba = softmax(logits), softmax(old_logits)
     familiar = familiarity.score(logits, features) >= familiarity.threshold
     old_familiar = old_familiarity.score(old_logits, old_features) >= old_familiarity.threshold

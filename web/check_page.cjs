@@ -72,10 +72,11 @@ async function openBrowser() {
       : { label: e.dataset.label, p: JSON.parse(e.dataset.probabilities),
           score: Number(e.dataset.score), familiar: e.dataset.familiar === "true" }));
   }
-  const diff = (got, logits) => Math.max(...softmax(logits).map((q, k) => Math.abs(got.p[classes[k]] - q)));
+  const diff = (got, logits) =>
+    Math.max(...softmax(logits.map((v) => v / temperature)).map((q, k) => Math.abs(got.p[classes[k]] - q)));
 
   // 1. Validation photos.
-  const { classes, images } = JSON.parse(fs.readFileSync(path.join(fixtures, "index.json"), "utf8"));
+  const { classes, images, temperature } = JSON.parse(fs.readFileSync(path.join(fixtures, "index.json"), "utf8"));
   let same = 0, maxDiff = 0, maxRelativeScoreDiff = 0;
   const threshold = JSON.parse(fs.readFileSync(path.join(fixtures, "index.json"), "utf8")).threshold;
   // The familiarity decision must match Python's, except within 1e-4 (relative) of the

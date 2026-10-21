@@ -53,7 +53,7 @@ make docker-stop
 
   Interactive docs: `GET /docs`.
 - **Refused inputs** get an error with one shape, `{"detail": [{"type", "loc", "msg"}]}`: 413 too large, 415 not a multipart upload, 422 not a readable image or outside the limits, 503 busy (two predictions at a time).
-- **Pipeline targets,** in order: `make data split`, `make baseline`, `make smoke-train` (one CPU epoch), training on Kaggle, `make select`, `make export`, `make errors`, `make familiarity-data familiarity`, `make evaluate` (once), `make latency`, `make web`.
+- **Pipeline targets,** in order: `make data split`, `make baseline`, `make smoke-train` (one CPU epoch), training on Kaggle, `make select`, `make export`, `make calibrate`, `make errors`, `make familiarity-data familiarity`, `make evaluate` (once), `make latency`, `make web`.
 - **Checks:** `make check` (Ruff and pytest), `make docker-smoke`, `make check-web` (the browser against Python; needs Node.js and Chrome). CI runs all three.
 
 ## Data
@@ -159,10 +159,11 @@ Test, per source (evaluated once) ([reports/test_metrics.json](reports/test_metr
 
 Photos unlike any training photo of their class are much harder. That is the better guide to performance on new kinds of objects.
 
-**Calibration** ([reliability diagram](reports/figures/reliability_test.png)):
-- The model is underconfident, as label smoothing tends to make it (expected calibration error 0.060).
-- Answers at 90% confidence or more were right 99.1% of the time on test (446 photos).
-- The demo marks answers below 90% as less certain. That threshold was chosen on validation by a fixed rule: the lowest threshold above which validation accuracy reaches 99%.
+**Calibration** ([reports/calibration.json](reports/calibration.json)):
+- **The trained model is underconfident,** as label smoothing tends to make it. On test its mean confidence was 86.5% against 91.6% accuracy (expected calibration error 0.060, [reliability diagram](reports/figures/reliability_test.png)), and answers at 90% confidence or more were right 99.1% of the time (446 photos).
+- **So the API and the demo divide the logits by a temperature of 0.74** before the softmax. It was fitted on validation photos by a rule fixed beforehand: the lowest negative log-likelihood. Labels never change.
+- **Measured on photos it was not fitted on:** fitting on one half of the validation groups and scoring the other half, both ways, the calibration error falls from 0.077 to 0.026, and mean confidence rises from 87.0% to 93.8% against 93.2% accuracy. The test set was not used again, so there is no test figure for the calibrated probabilities; the test numbers above are before calibration.
+- **The demo marks answers below 97% confidence as less certain.** On validation, answers above it were right 99.1% of the time, and 84.4% below; it flags 41% of answers. The rule is the lowest threshold above which validation accuracy reaches 99%. Its grid was refined from steps of 0.05 up to 0.95 to steps of 0.01 up to 0.99, after the old grid found no threshold for calibrated confidences.
 
 ## Photos the model doesn't know
 
@@ -183,9 +184,9 @@ The classifier has to answer with one of its six classes, so a photo of a person
 | Energy score of the logits | 82.5% | 15.8% |
 | **Mahalanobis distance (chosen)** | **83.5%** | **8.7%** |
 
-The second column matters most: a confident wrong label on a non-waste photo is the failure the check exists to prevent.
+Confidence here is before calibration, which came later. The second column matters most: a confident wrong label on a non-waste photo is the failure the check exists to prevent.
 
-**Version 4 is easier to fool than version 3.** Version 3 flagged 91.6% of everyday photos with its narrower training data; version 4 flags 83.8%, and 10.3% pass with 70% or more confidence. That is the price of a model that accepts real waste on ordinary floors.
+**Version 4 is easier to fool than version 3.** Version 3 flagged 91.6% of everyday photos with its narrower training data; version 4 flags 83.8%, and 12.9% pass with 70% or more (calibrated) confidence. That is the price of a model that accepts real waste on ordinary floors.
 
 ![Familiarity score: validation waste photos against everyday photos](reports/figures/familiarity.png)
 
@@ -201,13 +202,13 @@ The 52 validation errors ([reports/val_errors.json](reports/val_errors.json)) an
 - **Crushed metal called plastic or trash:** on test, 15 of RealWaste's 45 errors. Crumpled cans and foil look like crumpled plastic or mixed trash.
 - **Trash against everything else:** trash called plastic (9 validation errors), and studio paper called trash (4 test errors). Trash is the most mixed class.
 
-Most errors are uncertain: 60 of the 64 test errors were below 90% confidence.
+Most errors are uncertain: 60 of the 64 test errors were below 90% confidence (before calibration).
 
 ## Platform notes
 
 - **Intel Macs** stop at PyTorch 2.2.2 (which needs NumPy 1.x) and ONNX Runtime 1.23.2. The project pins those there and supports Python 3.12 only; pandas is held below 3 so that every platform runs the same major version. Everywhere else gets current versions, and Linux uses PyTorch's CPU-only build.
 - **Kaggle runs Python 3.13,** which those pins exclude, so the notebook runs the code from source (`PYTHONPATH=src`) instead of installing it. Each version's notebook was rehearsed on Python 3.13 in Docker first.
-- **The image serves with ONNX Runtime and NumPy only:** no PyTorch, pandas or uv. Of its size, 74 MB is SymPy, a dependency ONNX Runtime declares but does not need for inference.
+- **The image serves with ONNX Runtime and NumPy only:** no PyTorch, pandas or uv, and 454 MB in all. SymPy, which ONNX Runtime declares for its conversion tools but never imports for inference, is removed from it (104 MB with its compiled files).
 - **Latency,** one upload through Docker on a 2-core 2018 MacBook Air: 72 ms mean, 99 ms p95, measured with other work running. The familiarity check takes about 2 ms of that.
 - **MLflow:** browse a run's records with `uvx --from mlflow==3.17.1 mlflow server --backend-store-uri sqlite:///<run>/mlflow.db`.
 
@@ -229,7 +230,7 @@ Most errors are uncertain: 60 of the 64 test errors were below 90% confidence.
 - **Still one item, from above.** Both datasets show a single item photographed from above, on a white background or a concrete floor. Hands, bins full of things, piles and busy scenes are outside what the model has learned. The familiarity check is expected to flag many of them rather than answer, but it was not measured on such photos.
 - **Real-world accuracy beyond these two datasets is unknown.** RealWaste comes from one landfill in Australia; other places, lighting and cameras were not tested.
 - **The familiarity check is not a guarantee.**
-  - It lets through 16% of everyday photos, and 10% pass with 70% confidence or more.
+  - It lets through 16% of everyday photos, and 13% pass with 70% confidence or more.
   - It flags about 5% of genuine waste photos.
 - **The data is small.** The test sets have 397 and 366 photos, so accuracies are uncertain by about ±3–4 points. Studio trash has 19 test photos.
 - **The split guarantee stops at 0.86 similarity.** Below it, some test photos may still show an object also photographed in training (107 test photos are at 0.85–0.86), which would make scores slightly optimistic.
@@ -241,8 +242,7 @@ Most errors are uncertain: 60 of the 64 test errors were below 90% confidence.
 
 - Add photos of hands holding items, bins and mixed scenes (for example cut-outs from [TACO](http://tacodataset.org/), litter in the wild), so the model covers how people actually photograph waste.
 - Improve real-waste metal: more crushed cans and foil, or a class-weighted loss.
-- Temperature-scale the probabilities on validation, so that the displayed confidence means what it says.
-- Quantise the ONNX model for faster CPU inference, and drop SymPy from the image.
+- Quantise the ONNX model for faster CPU inference (a new model, so it needs a new test evaluation).
 
 ## Licence
 

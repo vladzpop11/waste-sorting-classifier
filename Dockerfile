@@ -20,6 +20,9 @@ COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-default-groups
+# ONNX Runtime declares SymPy (and through it mpmath) for its model-conversion tools;
+# inference never imports them. Nothing else here needs them: 79 MB less.
+RUN uv pip uninstall --python /app/.venv/bin/python sympy mpmath
 
 # --- runtime stage: no uv, no PyTorch -----------------------------------------------
 FROM ${PYTHON_IMAGE}

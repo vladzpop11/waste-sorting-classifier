@@ -42,7 +42,7 @@ The test set was evaluated once. Version 3 (trained on studio photos only) was s
 | Both (763) | 91.6% (88.1–94.3%) | 0.916 | | |
 
 - **Weakest classes:** studio trash, F1 0.800, worse than version 3's 0.889 (only 19 test photos); and real-waste metal, F1 0.807, with the lowest recall (73%): crushed cans and foil are called plastic or trash.
-- **Confidence:** the model is underconfident (expected calibration error 0.060). Answers at 90% confidence or more were right 99.1% of the time on test (446 photos).
+- **Confidence:** the trained model is underconfident (on test, mean confidence 86.5% against 91.6% accuracy). The served probabilities are temperature-scaled (0.74, fitted on validation): on validation photos not used to fit it, the calibration error falls from 0.077 to 0.026. Answers below 97% calibrated confidence are marked as less certain; above it, validation answers were right 99.1% of the time.
 - **Unfamiliar photos are harder:** test photos far from every training photo of their class score lower, for example 79.3% on RealWaste photos whose nearest training photo is at similarity 0.75–0.80.
 
 ## Familiarity check
@@ -50,7 +50,7 @@ The test set was evaluated once. Version 3 (trained on studio photos only) was s
 - **The method:** the Mahalanobis distance from a photo's features to the nearest class mean of the training features. The threshold lets 95% of validation photos pass.
 - **Measured** ([reports/familiarity.json](reports/familiarity.json)):
   - False alarms on new waste photos: 4.9%.
-  - Everyday photos (2,425 held-out Imagenette photos) flagged: 83.8%; 10.3% pass with 70% confidence or more.
+  - Everyday photos (2,425 held-out Imagenette photos) flagged: 83.8%; 12.9% pass with 70% (calibrated) confidence or more.
   - On test, it flagged 10.6% of RealWaste and 6.8% of TrashNet photos.
 - **It is not a guarantee:** about one everyday photo in six still gets a label.
 

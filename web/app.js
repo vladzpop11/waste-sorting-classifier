@@ -176,7 +176,8 @@ async function classify(blob, id = ++latest) {
     if (id !== latest) return;
     const f = MODEL.familiarity;
     const score = mahalanobis(bank, f.classes, f.dims, output.features.data);
-    showResult(softmax(Array.from(output.logits.data)), score);
+    // Calibrated on validation photos (calibrate.py): the label is unchanged.
+    showResult(softmax(Array.from(output.logits.data, (v) => v / MODEL.temperature)), score);
   } catch (err) {
     if (id !== latest) return;
     preview.hidden = true;

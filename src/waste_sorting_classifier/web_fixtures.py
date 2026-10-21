@@ -67,7 +67,8 @@ def main() -> None:
         index.append({"file": i, "path": path, "width": image.width, "height": image.height,
                       "score": score,
                       "logits": logits.tolist()})  # fmt: skip
-    record = {"classes": model.classes, "threshold": familiarity.threshold, "images": index}
+    record = {"classes": model.classes, "threshold": familiarity.threshold,
+              "temperature": model.temperature, "images": index}  # fmt: skip
     (out / "index.json").write_text(json.dumps(record))
     print(f"{len(index)} validation photos -> {out}")
 

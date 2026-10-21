@@ -159,3 +159,27 @@ def test_mahalanobis_matches_a_direct_computation(tmp_path) -> None:
     meta["familiarity"]["sha256"] = "0" * 64
     with pytest.raises(ValueError, match="SHA-256"):
         Familiarity(tmp_path, meta)
+
+
+def test_temperature_fit_recovers_a_known_temperature() -> None:
+    from waste_sorting_classifier.calibrate import fit_temperature
+
+    rng = np.random.default_rng(4)
+    true_logits = rng.normal(scale=3, size=(4000, 6))
+    p = np.exp(true_logits - true_logits.max(1, keepdims=True))
+    p /= p.sum(1, keepdims=True)
+    y = np.array([rng.choice(6, p=row) for row in p])  # labels drawn from the true model
+    # A model whose logits are 0.7 times too small (underconfident) needs temperature 0.7.
+    assert fit_temperature(0.7 * true_logits, y) == pytest.approx(0.7, abs=0.05)
+
+
+def test_calibrated_probabilities_keep_the_label() -> None:
+    from waste_sorting_classifier.onnx_model import OnnxClassifier
+
+    model = OnnxClassifier.__new__(OnnxClassifier)  # no ONNX file needed
+    model.temperature = 0.74
+    logits = np.random.default_rng(5).normal(size=(50, 6))
+    proba = model.probabilities(logits)
+    assert (proba.argmax(1) == logits.argmax(1)).all()
+    assert np.allclose(proba.sum(1), 1)
+    assert (proba.max(1) > np.exp(logits).max(1) / np.exp(logits).sum(1)).all()  # sharper

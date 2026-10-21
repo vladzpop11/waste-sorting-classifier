@@ -81,6 +81,16 @@ familiarity:
   ood_dir: data/ood
   ood_used_for_choosing: 1500
 
+# Calibration (calibrate.py): the logits are divided by one temperature before the softmax,
+# so the displayed confidence means what it says; labels never change. Rule, fixed before
+# measuring it (2026-10-21): the temperature minimises the negative log-likelihood of the
+# validation photos. Its effect on new photos is measured by fitting on one half of the
+# validation groups and scoring the other half, both ways. The low-confidence note is then
+# chosen again on the calibrated validation probabilities (make errors), by its usual rule.
+calibration:
+  method: temperature
+  objective: negative_log_likelihood
+
 # Version 4's single test evaluation also scores version 3 on the same photos (same run),
 # from its release files, checked against its archived record.
 compare:

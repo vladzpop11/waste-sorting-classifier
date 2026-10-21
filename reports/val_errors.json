@@ -4,65 +4,65 @@
   "images": 758,
   "accuracy": 0.9313984168865436,
   "calibration": {
-    "ece": 0.06955089921372545,
+    "ece": 0.019397566886250127,
     "bins": [
       {
         "from": 0.3,
         "to": 0.4,
-        "photos": 2,
+        "photos": 1,
         "accuracy": 0.0,
-        "confidence": 0.3472466766834259
+        "confidence": 0.374507337808609
       },
       {
         "from": 0.4,
         "to": 0.5,
-        "photos": 14,
-        "accuracy": 0.6428571428571429,
-        "confidence": 0.4707992374897003
+        "photos": 4,
+        "accuracy": 0.5,
+        "confidence": 0.4733615219593048
       },
       {
         "from": 0.5,
         "to": 0.6,
-        "photos": 24,
-        "accuracy": 0.5,
-        "confidence": 0.5482639670372009
+        "photos": 16,
+        "accuracy": 0.5625,
+        "confidence": 0.5476565361022949
       },
       {
         "from": 0.6,
         "to": 0.7,
-        "photos": 31,
-        "accuracy": 0.7096774193548387,
-        "confidence": 0.6427088975906372
+        "photos": 22,
+        "accuracy": 0.5,
+        "confidence": 0.6489391326904297
       },
       {
         "from": 0.7,
         "to": 0.8,
-        "photos": 41,
-        "accuracy": 0.7317073170731707,
-        "confidence": 0.7615634202957153
+        "photos": 22,
+        "accuracy": 0.8181818181818182,
+        "confidence": 0.7446912527084351
       },
       {
         "from": 0.8,
         "to": 0.9,
-        "photos": 200,
-        "accuracy": 0.955,
-        "confidence": 0.8716662526130676
+        "photos": 42,
+        "accuracy": 0.7142857142857143,
+        "confidence": 0.8588263988494873
       },
       {
         "from": 0.9,
         "to": 1.0,
-        "photos": 446,
-        "accuracy": 0.9910313901345291,
-        "confidence": 0.9271500706672668
+        "photos": 651,
+        "accuracy": 0.9769585253456221,
+        "confidence": 0.9723185300827026
       }
     ]
   },
   "low_confidence": {
-    "threshold": 0.9,
+    "threshold": 0.97,
     "target_accuracy_above": 0.99,
-    "accuracy_above": 0.9910313901345291,
-    "accuracy_below": 0.8461538461538461,
-    "share_below": 0.41160949868073876
+    "accuracy_above": 0.991130820399113,
+    "accuracy_below": 0.8436482084690554,
+    "share_below": 0.4050131926121372
   },
   "pairs": {
     "trash -> plastic": 9,
@@ -89,313 +89,313 @@
       "path": "realwaste/trash/Miscellaneous_Trash_26.jpg",
       "label": "trash",
       "predicted": "plastic",
-      "confidence": 0.9317
+      "confidence": 0.983
     },
     {
       "path": "glass/glass400.jpg",
       "label": "glass",
       "predicted": "metal",
-      "confidence": 0.9303
+      "confidence": 0.9822
     },
     {
       "path": "realwaste/metal/Metal_252.jpg",
       "label": "metal",
       "predicted": "plastic",
-      "confidence": 0.9181
+      "confidence": 0.9771
     },
     {
       "path": "realwaste/trash/Miscellaneous_Trash_345.jpg",
       "label": "trash",
       "predicted": "paper",
-      "confidence": 0.9132
+      "confidence": 0.9755
     },
     {
       "path": "glass/glass495.jpg",
       "label": "glass",
       "predicted": "metal",
-      "confidence": 0.8948
+      "confidence": 0.9676
     },
     {
       "path": "glass/glass170.jpg",
       "label": "glass",
       "predicted": "metal",
-      "confidence": 0.8863
+      "confidence": 0.9649
     },
     {
       "path": "realwaste/trash/Miscellaneous_Trash_210.jpg",
       "label": "trash",
       "predicted": "plastic",
-      "confidence": 0.8829
+      "confidence": 0.9627
     },
     {
       "path": "metal/metal177.jpg",
       "label": "metal",
       "predicted": "plastic",
-      "confidence": 0.873
-    },
-    {
-      "path": "glass/glass55.jpg",
-      "label": "glass",
-      "predicted": "plastic",
-      "confidence": 0.8626
+      "confidence": 0.9535
     },
     {
       "path": "realwaste/trash/Miscellaneous_Trash_438.jpg",
       "label": "trash",
       "predicted": "plastic",
-      "confidence": 0.8543
+      "confidence": 0.9497
+    },
+    {
+      "path": "glass/glass55.jpg",
+      "label": "glass",
+      "predicted": "plastic",
+      "confidence": 0.9472
     },
     {
       "path": "plastic/plastic266.jpg",
       "label": "plastic",
       "predicted": "glass",
-      "confidence": 0.852
+      "confidence": 0.9465
     },
     {
       "path": "realwaste/metal/Metal_250.jpg",
       "label": "metal",
       "predicted": "plastic",
-      "confidence": 0.8418
+      "confidence": 0.9368
     },
     {
       "path": "paper/paper30.jpg",
       "label": "paper",
       "predicted": "cardboard",
-      "confidence": 0.8316
+      "confidence": 0.9233
     },
     {
       "path": "paper/paper334.jpg",
       "label": "paper",
       "predicted": "trash",
-      "confidence": 0.7989
-    },
-    {
-      "path": "realwaste/plastic/Plastic_361.jpg",
-      "label": "plastic",
-      "predicted": "metal",
-      "confidence": 0.7884
+      "confidence": 0.9124
     },
     {
       "path": "plastic/plastic441.jpg",
       "label": "plastic",
       "predicted": "glass",
-      "confidence": 0.7868
+      "confidence": 0.9003
+    },
+    {
+      "path": "realwaste/plastic/Plastic_361.jpg",
+      "label": "plastic",
+      "predicted": "metal",
+      "confidence": 0.8885
     },
     {
       "path": "plastic/plastic460.jpg",
       "label": "plastic",
       "predicted": "trash",
-      "confidence": 0.7734
-    },
-    {
-      "path": "paper/paper590.jpg",
-      "label": "paper",
-      "predicted": "plastic",
-      "confidence": 0.758
+      "confidence": 0.8696
     },
     {
       "path": "realwaste/trash/Miscellaneous_Trash_141.jpg",
       "label": "trash",
       "predicted": "plastic",
-      "confidence": 0.7475
+      "confidence": 0.8641
     },
     {
-      "path": "realwaste/plastic/Plastic_920.jpg",
-      "label": "plastic",
-      "predicted": "glass",
-      "confidence": 0.7473
+      "path": "paper/paper590.jpg",
+      "label": "paper",
+      "predicted": "plastic",
+      "confidence": 0.8586
     },
     {
       "path": "realwaste/glass/Glass_395.jpg",
       "label": "glass",
       "predicted": "plastic",
-      "confidence": 0.741
+      "confidence": 0.8545
+    },
+    {
+      "path": "realwaste/plastic/Plastic_920.jpg",
+      "label": "plastic",
+      "predicted": "glass",
+      "confidence": 0.8446
     },
     {
       "path": "realwaste/glass/Glass_49.jpg",
       "label": "glass",
       "predicted": "plastic",
-      "confidence": 0.7342
+      "confidence": 0.8387
     },
     {
       "path": "paper/paper568.jpg",
       "label": "paper",
       "predicted": "trash",
-      "confidence": 0.7298
-    },
-    {
-      "path": "realwaste/glass/Glass_43.jpg",
-      "label": "glass",
-      "predicted": "plastic",
-      "confidence": 0.7103
+      "confidence": 0.8344
     },
     {
       "path": "realwaste/metal/Metal_475.jpg",
       "label": "metal",
       "predicted": "glass",
-      "confidence": 0.6996
+      "confidence": 0.822
+    },
+    {
+      "path": "realwaste/glass/Glass_43.jpg",
+      "label": "glass",
+      "predicted": "plastic",
+      "confidence": 0.8149
     },
     {
       "path": "realwaste/metal/Metal_264.jpg",
       "label": "metal",
       "predicted": "trash",
-      "confidence": 0.6953
+      "confidence": 0.8085
     },
     {
       "path": "realwaste/cardboard/Cardboard_82.jpg",
       "label": "cardboard",
       "predicted": "plastic",
-      "confidence": 0.6829
-    },
-    {
-      "path": "realwaste/trash/Miscellaneous_Trash_248.jpg",
-      "label": "trash",
-      "predicted": "plastic",
-      "confidence": 0.6532
-    },
-    {
-      "path": "realwaste/metal/Metal_565.jpg",
-      "label": "metal",
-      "predicted": "trash",
-      "confidence": 0.6373
-    },
-    {
-      "path": "realwaste/metal/Metal_564.jpg",
-      "label": "metal",
-      "predicted": "trash",
-      "confidence": 0.6346
+      "confidence": 0.8061
     },
     {
       "path": "trash/trash32.jpg",
       "label": "trash",
       "predicted": "plastic",
-      "confidence": 0.6254
+      "confidence": 0.7721
+    },
+    {
+      "path": "realwaste/trash/Miscellaneous_Trash_248.jpg",
+      "label": "trash",
+      "predicted": "plastic",
+      "confidence": 0.7565
+    },
+    {
+      "path": "realwaste/metal/Metal_564.jpg",
+      "label": "metal",
+      "predicted": "trash",
+      "confidence": 0.7404
+    },
+    {
+      "path": "realwaste/metal/Metal_565.jpg",
+      "label": "metal",
+      "predicted": "trash",
+      "confidence": 0.7397
     },
     {
       "path": "realwaste/paper/Paper_429.jpg",
       "label": "paper",
       "predicted": "trash",
-      "confidence": 0.6096
+      "confidence": 0.6976
     },
     {
       "path": "realwaste/trash/Miscellaneous_Trash_436.jpg",
       "label": "trash",
       "predicted": "glass",
-      "confidence": 0.6021
-    },
-    {
-      "path": "realwaste/trash/Miscellaneous_Trash_350.jpg",
-      "label": "trash",
-      "predicted": "paper",
-      "confidence": 0.5657
-    },
-    {
-      "path": "realwaste/metal/Metal_140.jpg",
-      "label": "metal",
-      "predicted": "trash",
-      "confidence": 0.5649
-    },
-    {
-      "path": "realwaste/glass/Glass_399.jpg",
-      "label": "glass",
-      "predicted": "plastic",
-      "confidence": 0.5642
-    },
-    {
-      "path": "realwaste/trash/Miscellaneous_Trash_460.jpg",
-      "label": "trash",
-      "predicted": "plastic",
-      "confidence": 0.5562
+      "confidence": 0.6896
     },
     {
       "path": "metal/metal225.jpg",
       "label": "metal",
       "predicted": "plastic",
-      "confidence": 0.5552
+      "confidence": 0.685
     },
     {
-      "path": "realwaste/glass/Glass_48.jpg",
-      "label": "glass",
-      "predicted": "plastic",
-      "confidence": 0.5491
-    },
-    {
-      "path": "trash/trash51.jpg",
+      "path": "realwaste/trash/Miscellaneous_Trash_460.jpg",
       "label": "trash",
       "predicted": "plastic",
-      "confidence": 0.5323
+      "confidence": 0.6448
+    },
+    {
+      "path": "realwaste/trash/Miscellaneous_Trash_350.jpg",
+      "label": "trash",
+      "predicted": "paper",
+      "confidence": 0.625
     },
     {
       "path": "realwaste/trash/Miscellaneous_Trash_285.jpg",
       "label": "trash",
       "predicted": "cardboard",
-      "confidence": 0.5235
+      "confidence": 0.6224
     },
     {
-      "path": "realwaste/trash/Miscellaneous_Trash_349.jpg",
-      "label": "trash",
+      "path": "realwaste/glass/Glass_48.jpg",
+      "label": "glass",
       "predicted": "plastic",
-      "confidence": 0.5206
+      "confidence": 0.6187
+    },
+    {
+      "path": "realwaste/glass/Glass_399.jpg",
+      "label": "glass",
+      "predicted": "plastic",
+      "confidence": 0.6181
     },
     {
       "path": "realwaste/plastic/Plastic_791.jpg",
       "label": "plastic",
       "predicted": "glass",
-      "confidence": 0.5201
+      "confidence": 0.6158
     },
     {
-      "path": "realwaste/metal/Metal_700.jpg",
+      "path": "realwaste/metal/Metal_140.jpg",
       "label": "metal",
-      "predicted": "plastic",
-      "confidence": 0.5067
+      "predicted": "trash",
+      "confidence": 0.6107
     },
     {
-      "path": "realwaste/plastic/Plastic_793.jpg",
-      "label": "plastic",
-      "predicted": "glass",
-      "confidence": 0.5065
+      "path": "trash/trash51.jpg",
+      "label": "trash",
+      "predicted": "plastic",
+      "confidence": 0.6095
+    },
+    {
+      "path": "realwaste/trash/Miscellaneous_Trash_349.jpg",
+      "label": "trash",
+      "predicted": "plastic",
+      "confidence": 0.5975
     },
     {
       "path": "realwaste/metal/Metal_203.jpg",
       "label": "metal",
       "predicted": "paper",
-      "confidence": 0.4974
+      "confidence": 0.5854
     },
     {
       "path": "glass/glass184.jpg",
       "label": "glass",
       "predicted": "metal",
-      "confidence": 0.4936
+      "confidence": 0.5605
     },
     {
-      "path": "trash/trash56.jpg",
-      "label": "trash",
-      "predicted": "cardboard",
-      "confidence": 0.4597
+      "path": "realwaste/plastic/Plastic_793.jpg",
+      "label": "plastic",
+      "predicted": "glass",
+      "confidence": 0.5592
+    },
+    {
+      "path": "realwaste/metal/Metal_700.jpg",
+      "label": "metal",
+      "predicted": "plastic",
+      "confidence": 0.5533
     },
     {
       "path": "realwaste/plastic/Plastic_252.jpg",
       "label": "plastic",
       "predicted": "glass",
-      "confidence": 0.4582
+      "confidence": 0.5418
     },
     {
       "path": "realwaste/plastic/Plastic_734.jpg",
       "label": "plastic",
       "predicted": "cardboard",
-      "confidence": 0.4452
+      "confidence": 0.5175
+    },
+    {
+      "path": "trash/trash56.jpg",
+      "label": "trash",
+      "predicted": "cardboard",
+      "confidence": 0.492
     },
     {
       "path": "plastic/plastic474.jpg",
       "label": "plastic",
       "predicted": "glass",
-      "confidence": 0.3557
+      "confidence": 0.425
     },
     {
       "path": "realwaste/trash/Miscellaneous_Trash_283.jpg",
       "label": "trash",
       "predicted": "cardboard",
-      "confidence": 0.3388
+      "confidence": 0.3745
     }
   ]
 }

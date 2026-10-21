@@ -6,7 +6,8 @@ threshold. Version 4 uses the Mahalanobis distance of the model's features to th
 class means (shared covariance, regularised by 0.001 on the diagonal). Chosen on the
 Imagenette photos set aside for that, at 95% of validation photos kept: it caught 83.5% of
 everyday photos and let 8.7% through with 70%+ confidence, against 82.5% / 15.8% for the
-energy score and 73.0% / 17.0% for version 3's nearest-training-photo similarity (README).
+energy score and 73.0% / 17.0% for version 3's nearest-training-photo similarity (README;
+confidence before calibration, which came later).
 
 - Threshold, by the rule in configs/config.yaml: the value that lets 95% of validation photos
   through. Its false-alarm rate on new waste photos is estimated by setting it on one half
@@ -150,8 +151,7 @@ def main() -> None:
     by_class = {}
     for path, c in zip(held_out, caught, strict=True):
         by_class.setdefault(IMAGENETTE[path.parent.name], []).append(bool(c))
-    proba = np.exp(everyday_logits - everyday_logits.max(1, keepdims=True))
-    proba /= proba.sum(1, keepdims=True)
+    proba = model.probabilities(everyday_logits)  # calibrated, as the API shows them
 
     meta["familiarity"] = {**record, "threshold": threshold,
                            "rule": f"lets {keep:.0%} of validation photos through"}  # fmt: skip

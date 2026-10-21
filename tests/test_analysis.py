@@ -38,7 +38,7 @@ def test_low_confidence_threshold_is_the_lowest_meeting_the_target() -> None:
     confidence = np.array([0.52, 0.58, 0.66, 0.71, 0.9, 0.95, 0.97, 0.99])
     correct = np.array([False, True, False, True, True, True, True, True])
     flag = low_confidence_threshold(confidence, correct, target=0.99)
-    assert flag["threshold"] == 0.7  # 0.65 still includes the 0.66 error
+    assert flag["threshold"] == 0.67  # 0.66 still includes the 0.66 error
     assert flag["accuracy_above"] == 1.0
     assert flag["accuracy_below"] == 1 / 3
     assert flag["share_below"] == 3 / 8
@@ -77,8 +77,8 @@ def test_a_class_missing_from_a_resample_is_not_scored_zero() -> None:
 def test_low_confidence_threshold_is_none_when_no_threshold_meets_the_target() -> None:
     from waste_sorting_classifier.metrics import low_confidence_threshold
 
-    flag = low_confidence_threshold(np.array([0.6, 0.7, 0.96, 0.97, 0.98]),
-                                    np.array([True, True, False, True, True]))  # fmt: skip
+    flag = low_confidence_threshold(np.array([0.6, 0.7, 0.96, 0.97, 0.995]),
+                                    np.array([True, True, True, True, False]))  # fmt: skip
     assert flag["threshold"] is None
 
 

@@ -29,7 +29,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from waste_sorting_classifier import __version__
 from waste_sorting_classifier.config import load_config, project_path
 from waste_sorting_classifier.familiarity import Familiarity
-from waste_sorting_classifier.onnx_model import OnnxClassifier, softmax
+from waste_sorting_classifier.onnx_model import OnnxClassifier
 from waste_sorting_classifier.preprocess import check_size, load_rgb, preprocess
 
 logger = logging.getLogger(__name__)
@@ -219,7 +219,7 @@ def predict(
         return error(422, "invalid_image", str(exc))
     finally:
         _slots.release()
-    proba = softmax(logits)[0]
+    proba = model.probabilities(logits)[0]
     score = float(app.state.familiarity.score(logits, features)[0])
     return Prediction(
         label=model.classes[int(proba.argmax())],

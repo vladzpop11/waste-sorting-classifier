@@ -1,0 +1,141 @@
+{
+  "onnx_sha256": "536ae512fd303bc4710c4e52e66edca463f832f2d3068e64f34271f3e30bebf7",
+  "method": "temperature",
+  "temperature": 0.7424868605879112,
+  "rule": "minimises the negative log-likelihood of the validation photos",
+  "validation_photos": 758,
+  "validation": {
+    "before": {
+      "photos": 758,
+      "accuracy": 0.9313984168865436,
+      "mean_confidence": 0.8699660301208496,
+      "ece": 0.06955089921372545,
+      "nll": 0.27624600821314943
+    },
+    "after": {
+      "photos": 758,
+      "accuracy": 0.9313984168865436,
+      "mean_confidence": 0.9376521706581116,
+      "ece": 0.019397566886250127,
+      "nll": 0.24238690722870154
+    }
+  },
+  "held_out_halves": [
+    {
+      "temperature": 0.6898673139845163,
+      "before": {
+        "photos": 396,
+        "accuracy": 0.9242424242424242,
+        "mean_confidence": 0.8732625246047974,
+        "ece": 0.07728909663479734,
+        "nll": 0.29932264652605073
+      },
+      "after": {
+        "photos": 396,
+        "accuracy": 0.9242424242424242,
+        "mean_confidence": 0.9508742690086365,
+        "ece": 0.03455300696871502,
+        "nll": 0.28050136074002646
+      },
+      "by_source": {
+        "realwaste": {
+          "before": {
+            "photos": 186,
+            "accuracy": 0.8978494623655914,
+            "mean_confidence": 0.8594416379928589,
+            "ece": 0.07522588071002756,
+            "nll": 0.3451124527606881
+          },
+          "after": {
+            "photos": 186,
+            "accuracy": 0.8978494623655914,
+            "mean_confidence": 0.9389960765838623,
+            "ece": 0.05221246663601168,
+            "nll": 0.334510634241692
+          }
+        },
+        "trashnet": {
+          "before": {
+            "photos": 210,
+            "accuracy": 0.9476190476190476,
+            "mean_confidence": 0.8855039477348328,
+            "ece": 0.07911658485730488,
+            "nll": 0.25876596100394333
+          },
+          "after": {
+            "photos": 210,
+            "accuracy": 0.9476190476190476,
+            "mean_confidence": 0.9613949656486511,
+            "ece": 0.01891189501399084,
+            "nll": 0.23266457563855136
+          }
+        }
+      }
+    },
+    {
+      "temperature": 0.7838160319401378,
+      "before": {
+        "photos": 362,
+        "accuracy": 0.9392265193370166,
+        "mean_confidence": 0.8663600087165833,
+        "ece": 0.07670342625834004,
+        "nll": 0.2510019508321856
+      },
+      "after": {
+        "photos": 362,
+        "accuracy": 0.9392265193370166,
+        "mean_confidence": 0.9252002239227295,
+        "ece": 0.01683365952902738,
+        "nll": 0.2092309597845444
+      },
+      "by_source": {
+        "realwaste": {
+          "before": {
+            "photos": 212,
+            "accuracy": 0.9292452830188679,
+            "mean_confidence": 0.8655940890312195,
+            "ece": 0.08797197732722983,
+            "nll": 0.25454317229817774
+          },
+          "after": {
+            "photos": 212,
+            "accuracy": 0.9292452830188679,
+            "mean_confidence": 0.9255457520484924,
+            "ece": 0.04265087814825887,
+            "nll": 0.21223245555925577
+          }
+        },
+        "trashnet": {
+          "before": {
+            "photos": 150,
+            "accuracy": 0.9533333333333334,
+            "mean_confidence": 0.8674426078796387,
+            "ece": 0.09063360551993052,
+            "nll": 0.24599702449358343
+          },
+          "after": {
+            "photos": 150,
+            "accuracy": 0.9533333333333334,
+            "mean_confidence": 0.9247121214866638,
+            "ece": 0.034701355298360145,
+            "nll": 0.20498884575628565
+          }
+        }
+      }
+    }
+  ],
+  "held_out_mean": {
+    "before": {
+      "accuracy": 0.9317344717897205,
+      "mean_confidence": 0.8698112666606903,
+      "ece": 0.07699626144656868,
+      "nll": 0.2751622986791182
+    },
+    "after": {
+      "accuracy": 0.9317344717897205,
+      "mean_confidence": 0.938037246465683,
+      "ece": 0.0256933332488712,
+      "nll": 0.24486616026228541
+    }
+  }
+}
