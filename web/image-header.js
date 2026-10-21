@@ -32,13 +32,15 @@ export function sniffFormat(b) {
 
 // --- EXIF and XMP ----------------------------------------------------------------------
 
-// Orientation from a TIFF-structured EXIF block, read like Pillow's Exif.load and
+// Orientation from a TIFF-structured EXIF block, read like Pillow 13's Exif.load and
 // ImageFileDirectory_v2.load:
 // - the header must be one of Pillow's TIFF prefixes, or Pillow raises (ExifError here);
-// - entries of unknown type are skipped; an entry whose data lies outside the block stops
-//   the whole directory, keeping what was read before it (Pillow's truncated-read path);
-// - the last entry for a tag wins, whatever its type; numeric types give their first
-//   value, byte and string types never match an orientation.
+// - entries of unknown type, or with no data, are skipped;
+// - out-of-line data counts towards a total for the whole directory; an entry that takes
+//   the total past the block's size is skipped, and one whose data runs past the end of the
+//   block stops the directory, keeping what was read before it;
+// - the first stored entry for a tag wins; numeric types give their first value, byte and
+//   string types never match an orientation.
 // Returns the value (NaN when not numeric) or null when there is none.
 export class ExifError extends Error {}
 const UNIT = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8, 13: 4, 16: 8 };
@@ -77,17 +79,21 @@ export function exifOrientation(exif) {
   const ifd = u32(b, 4, le);
   if (ifd + 2 > b.length) return null;
   let found = null;
+  let outOfLine = 0;
   const count = u16(b, ifd, le);
   for (let i = 0; i < count; i++) {
     const e = ifd + 2 + i * 12;
     if (e + 12 > b.length) break;
     const tag = u16(b, e, le), type = u16(b, e + 2, le), n = u32(b, e + 4, le);
+    if (tag === 0x0112 && found !== null) continue; // the first stored entry wins
     if (!UNIT[type]) continue;
     const size = UNIT[type] * n;
     let at = e + 8;
     if (size > 4) {
       at = u32(b, e + 8, le);
-      if (at + size > b.length) break;
+      outOfLine += size;
+      if (outOfLine > b.length) continue; // larger than the block: skipped
+      if (at + size > b.length) break; // a truncated read stops the directory
     }
     if (size === 0) continue;
     if (tag === 0x0112) found = firstValue(b, at, type, le);

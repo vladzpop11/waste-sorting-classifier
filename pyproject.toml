@@ -17,7 +17,7 @@ dependencies = [
     "numpy>=2 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "onnxruntime==1.23.2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "onnxruntime>=1.23 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    "pillow>=11",
+    "pillow>=13",  # 13.0.0 fixes 8 CVEs in 12.x (CI audit, 2026-10-21)
     "python-multipart>=0.0.20",
     "pyyaml>=6.0.3",
     "uvicorn>=0.54.0",
@@ -44,9 +44,6 @@ train = [
     "mlflow-skinny>=3",
     "sqlalchemy>=2",
     "alembic>=1.13",
-]
-demo = [
-    "gradio==6.30.0",
 ]
 dev = ["httpx2>=2.13.1", "pre-commit>=4.7.0", "pytest>=9.1.1", "ruff>=0.17.1"]
 

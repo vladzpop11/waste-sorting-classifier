@@ -3,7 +3,7 @@ NAME  ?= waste-sorting-classifier
 PORT  ?= 8000
 
 .PHONY: help setup format lint test check data split baseline smoke-train train export \
-        embeddings familiarity-data familiarity select evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors demo-local web check-web
+        embeddings familiarity-data familiarity select evaluate fetch-model serve docker-build docker-run docker-stop docker-smoke latency errors web check-web
 
 help:  ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -84,9 +84,6 @@ latency:  ## Measure /predict latency against the running API (writes reports/la
 
 errors:  ## Validation error gallery of the exported model (reports/figures/val_errors.png)
 	uv run python -m waste_sorting_classifier.errors
-
-demo-local:  ## The Gradio demo on localhost (needs make fetch-model)
-	uv run --group demo python demo/gradio_app.py
 
 WEB_TEST := .cache/web-test
 CHROME ?= /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
