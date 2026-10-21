@@ -25,6 +25,8 @@ The intervals resample whole groups of similar photos.
 
 **Try it:** [huggingface.co/spaces/VladZpp/waste-sorting-classifier](https://huggingface.co/spaces/VladZpp/waste-sorting-classifier). The model runs in your browser, so photos never leave your device.
 
+**Model card:** [MODEL_CARD.md](MODEL_CARD.md), one page on intended use, data, results per source, limits and licence.
+
 ## Versions
 
 1. **Version 1:** TrashNet only. Its split leaked near-duplicate photos into the test set and was replaced ([reports/history/v1](reports/history/v1)).
