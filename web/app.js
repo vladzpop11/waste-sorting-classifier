@@ -8,7 +8,7 @@ const jpegFactory = globalThis.libjpegturbowasm_decode;
 import * as ort from "./vendor/ort.wasm.min.mjs";
 import webpFactory from "./vendor/webp_dec.js";
 import { decodeImage, makeCodecs } from "./decode.js";
-import { similarity } from "./familiarity.js";
+import { mahalanobis } from "./familiarity.js";
 import { MODEL, WASM } from "./model-info.js";
 import { preprocess } from "./preprocess.js";
 
@@ -16,7 +16,9 @@ ort.env.wasm.wasmPaths = new URL("./vendor/", import.meta.url).href;
 ort.env.wasm.numThreads = 1; // multi-threading needs cross-origin isolation, not set here
 
 const MAX_BYTES = 20 * 1024 * 1024;
-const EXAMPLES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"];
+const CLASSES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"];
+// Studio photos (TrashNet) and real waste (RealWaste), one validation photo per class each.
+const EXAMPLES = [...CLASSES, ...CLASSES.map((c) => `${c}-real`)];
 
 const $ = (id) => document.getElementById(id);
 let session, codecs, bank;
@@ -48,7 +50,7 @@ async function load() {
     ...["ort-wasm-simd-threaded.wasm", "libjpegturbowasm_decode.wasm", "webp_dec.wasm"].map((name) =>
       fetchVerified(`vendor/${name}`, WASM[name])),
   ]);
-  bank = new Int8Array(bankBytes.buffer, bankBytes.byteOffset, bankBytes.byteLength);
+  bank = new Float32Array(bankBytes.buffer, bankBytes.byteOffset, bankBytes.byteLength / 4);
   ort.env.wasm.wasmBinary = ortWasm;
   codecs = makeCodecs({ jpegFactory, jpegWasm, webpFactory, webpWasm });
   session = await ort.InferenceSession.create(model, { executionProviders: ["wasm"] });
@@ -94,7 +96,7 @@ function showResult(probabilities, score) {
   const result = $("result");
   result.dataset.label = top.name;
   result.dataset.probabilities = JSON.stringify(Object.fromEntries(ranked.map((r) => [r.name, r.p])));
-  result.dataset.similarity = String(score);
+  result.dataset.score = String(score);
   result.dataset.familiar = String(familiar);
   result.replaceChildren();
 
@@ -109,7 +111,7 @@ function showResult(probabilities, score) {
     const details = document.createElement("details");
     const summary = document.createElement("summary");
     summary.textContent = "Show the model's guess anyway";
-    details.append(summary, paragraph("confidence", `Similarity to the nearest training photo: ${score.toFixed(2)} (photos below ${MODEL.familiarity.threshold.toFixed(2)} are flagged). Guess: ${top.name}, ${(top.p * 100).toFixed(0)}%.`), bars(ranked, top));
+    details.append(summary, paragraph("confidence", `Familiarity score ${Math.round(score)} (photos below ${Math.round(MODEL.familiarity.threshold)} are flagged). Guess: ${top.name}, ${(top.p * 100).toFixed(0)}%.`), bars(ranked, top));
     result.append(details);
     return;
   }
@@ -173,7 +175,7 @@ async function classify(blob, id = ++latest) {
     const output = await session.run({ image: input });
     if (id !== latest) return;
     const f = MODEL.familiarity;
-    const score = similarity(bank, f.rows, f.dims, f.scale, output.features.data);
+    const score = mahalanobis(bank, f.classes, f.dims, output.features.data);
     showResult(softmax(Array.from(output.logits.data)), score);
   } catch (err) {
     if (id !== latest) return;
@@ -209,10 +211,11 @@ function setUp() {
   for (const name of EXAMPLES) {
     const button = document.createElement("button");
     button.type = "button";
-    button.setAttribute("aria-label", `Example photo: ${name}`);
+    const real = name.endsWith("-real"), label = name.replace(/-real$/, "");
+    button.setAttribute("aria-label", `Example photo: ${label}${real ? " (real waste)" : ""}`);
     button.innerHTML = `<img alt=""><span aria-hidden="true"></span>`;
     button.querySelector("img").src = `examples/${name}.jpg`;
-    button.querySelector("span").textContent = name;
+    button.querySelector("span").textContent = label;
     button.addEventListener("click", async () => {
       const id = ++latest; // a later upload wins even if this fetch is slow
       try {
@@ -221,7 +224,7 @@ function setUp() {
         if (id === latest) showError(err.message);
       }
     });
-    $("examples").append(button);
+    $(real ? "examples-real" : "examples").append(button);
   }
 }
 

@@ -1,0 +1,12 @@
+{
+  "measured_at": "2026-10-20T18:04:08+00:00",
+  "client_machine": "Darwin x86_64",
+  "image": "tests/example.jpg (512x384 JPEG)",
+  "requests": 50,
+  "mean_ms": 75.7885795988841,
+  "p50_ms": 72.52954249997856,
+  "p95_ms": 97.51095200772397,
+  "max_ms": 123.34472700604238,
+  "model": "efficientnet_b0",
+  "onnx_sha256": "155e0de2a39181f0a454bc2833217c70c81a84f5d308e89e9cbafc3724c3f11d"
+}

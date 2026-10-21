@@ -15,7 +15,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       UV_LOCKED: "1"  # every uv command must match uv.lock exactly
     steps:

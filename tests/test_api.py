@@ -11,7 +11,6 @@ from waste_sorting_classifier import preprocess as pp
 from waste_sorting_classifier.api import MAX_UPLOAD_BYTES, app
 from waste_sorting_classifier.artifacts import sha256
 from waste_sorting_classifier.export import export_onnx
-from waste_sorting_classifier.familiarity import quantize
 
 CLASSES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
 
@@ -25,21 +24,25 @@ def models_dir(tmp_path_factory):
     ).eval()
     out = tmp_path_factory.mktemp("models")
     export_onnx(tiny, out / "model.onnx")
-    # The tiny model's features are the image's mean colour (normalised): the bank holds the
-    # colour of image_bytes(), so that photo is familiar and a blue one is not.
+    # The tiny model's features are the image's mean colour (normalised). Mahalanobis with
+    # identity covariance: one class mean is the colour of image_bytes(), the others far
+    # away, so that photo is familiar and a blue one is not.
     colour = (np.array([120, 80, 40]) / 255 - pp.MEAN) / pp.STD
-    quantize(colour[np.newaxis]).tofile(out / "familiarity.bin")
+    means = np.vstack([colour, np.full((len(CLASSES) - 1, 3), 50.0)])
+    stored = np.concatenate([means.ravel(), np.eye(3).ravel()]).astype("<f4")
+    stored.tofile(out / "familiarity.bin")
     meta = {
         "arch": "tiny",
         "classes": CLASSES,
         "onnx_sha256": sha256(out / "model.onnx"),
         "familiarity": {
+            "method": "mahalanobis",
             "file": "familiarity.bin",
             "sha256": sha256(out / "familiarity.bin"),
-            "shape": [1, 3],
-            "scale": 127,
-            "threshold": 0.9,
-        },  # fmt: skip
+            "classes": len(CLASSES),
+            "dims": 3,
+            "threshold": -0.5,
+        },
     }
     (out / "model.json").write_text(json.dumps(meta))
     return out
@@ -84,7 +87,7 @@ def test_predict_accepts_common_formats(client, fmt) -> None:
     assert set(body["probabilities"]) == set(CLASSES)
     assert sum(body["probabilities"].values()) == pytest.approx(1, abs=1e-4)
     assert body["label"] == max(body["probabilities"], key=body["probabilities"].get)
-    assert body["familiar"] is True and body["similarity"] == pytest.approx(1, abs=0.01)
+    assert body["familiar"] is True and body["familiarity_score"] == pytest.approx(0, abs=0.01)
 
 
 def test_predict_handles_greyscale_and_transparency(client) -> None:
@@ -194,9 +197,9 @@ def test_unfamiliar_photo_is_flagged_but_still_classified(client) -> None:
     buf = io.BytesIO()
     Image.new("RGB", (160, 120), (20, 60, 220)).save(buf, format="PNG")  # nothing like the bank
     body = client.post("/predict", files={"file": ("blue.png", buf.getvalue())}).json()
-    assert body["familiar"] is False and body["similarity"] < 0.9
+    assert body["familiar"] is False and body["familiarity_score"] < -0.5
     assert body["label"] in CLASSES
 
 
 def test_health_reports_the_familiarity_threshold(client) -> None:
-    assert client.get("/health").json()["familiarity_threshold"] == 0.9
+    assert client.get("/health").json()["familiarity_threshold"] == -0.5

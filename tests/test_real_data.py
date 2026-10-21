@@ -45,10 +45,13 @@ def test_web_demo_records_the_evaluated_model() -> None:
     start = code.index("export const MODEL = ") + len("export const MODEL = ")
     web = json.loads(code[start : code.index("};", start) + 1])
     model = json.loads((root / "models" / "model.json").read_text())
-    # The served file is the evaluated model with its features exposed: same logits.
+    evaluated = json.loads(metrics.read_text())["onnx_sha256"]
     assert web["sha256"] == model["onnx_sha256"]
-    assert model["evaluated_onnx_sha256"] == json.loads(metrics.read_text())["onnx_sha256"]
-    assert model["matches_evaluated"]["max_abs_logit_diff"] == 0
+    if model["evaluated_onnx_sha256"] is None:  # version 4: the served file was evaluated
+        assert evaluated == model["onnx_sha256"]
+    else:  # version 3: the evaluated model with its features exposed, same logits
+        assert model["evaluated_onnx_sha256"] == evaluated
+        assert model["matches_evaluated"]["max_abs_logit_diff"] == 0
     assert web["familiarity"]["sha256"] == model["familiarity"]["sha256"]
     assert web["classes"] == model["classes"]
     assert web["arch"] == model["arch"]
@@ -60,7 +63,9 @@ def test_demo_examples_are_validation_photos() -> None:
     split = load_split(CFG, verify=False).set_index("sha256")
     for example in sorted(project_path("web/examples").glob("*.jpg")):
         row = split.loc[sha256(example)]
-        assert (row["split"], row["label"]) == ("val", example.stem), example.name
+        label, real = example.stem.removesuffix("-real"), example.stem.endswith("-real")
+        source = "realwaste" if real else "trashnet"
+        assert (row["split"], row["label"], row["source"]) == ("val", label, source), example.name
 
 
 def test_trashnet_keeps_its_version_2_split() -> None:

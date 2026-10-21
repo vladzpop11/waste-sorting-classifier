@@ -10,19 +10,19 @@ export const MODEL = {
     "plastic",
     "trash"
   ],
-  "sha256": "155e0de2a39181f0a454bc2833217c70c81a84f5d308e89e9cbafc3724c3f11d",
+  "sha256": "536ae512fd303bc4710c4e52e66edca463f832f2d3068e64f34271f3e30bebf7",
   "familiarity": {
+    "method": "mahalanobis",
     "file": "familiarity.bin",
-    "sha256": "194c1bbac83f79cd4dc041b04bcf0e1357ec8226816c4f275f7eff4f1f70a630",
-    "rows": 1795,
+    "sha256": "b15bff10ab30640f6ad5d30d9bba534c3b2db80ba6971a947acc356346c571cf",
+    "classes": 6,
     "dims": 1280,
-    "scale": 127,
-    "threshold": 0.5347744980626861
+    "threshold": -5855.972243745473
   },
   "lowConfidence": {
     "threshold": 0.9,
-    "accuracyBelow": 0.8904109589041096,
-    "accuracyAbove": 0.9906542056074766
+    "accuracyBelow": 0.8461538461538461,
+    "accuracyAbove": 0.9910313901345291
   }
 };
 export const WASM = {

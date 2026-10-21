@@ -55,9 +55,10 @@ class Prediction(BaseModel):
         "background). When false, the label is not reliable: the model has never seen photos "
         "like this one and has to pick one of its six classes anyway."
     )
-    similarity: float = Field(
-        description="Cosine similarity of the photo's features to the nearest training photo; "
-        "familiar means at least the threshold reported by /health"
+    familiarity_score: float = Field(
+        description="How much the photo's features resemble the training photos' (minus the "
+        "Mahalanobis distance to the nearest class); familiar means at least the threshold "
+        "reported by /health"
     )
     model: str
 
@@ -219,11 +220,11 @@ def predict(
     finally:
         _slots.release()
     proba = softmax(logits)[0]
-    similarity = float(app.state.familiarity.score(features)[0])
+    score = float(app.state.familiarity.score(logits, features)[0])
     return Prediction(
         label=model.classes[int(proba.argmax())],
         probabilities={c: round(float(p), 6) for c, p in zip(model.classes, proba, strict=True)},
-        familiar=similarity >= app.state.familiarity.threshold,
-        similarity=round(similarity, 4),
+        familiar=score >= app.state.familiarity.threshold,
+        familiarity_score=round(score, 4),
         model=model.meta["arch"],
     )

@@ -80,11 +80,19 @@ familiarity:
   ood_dir: data/ood
   ood_used_for_choosing: 1500
 
-# The served files, published as GitHub release assets: the ONNX model (the evaluated
-# model with its features exposed) and the familiarity bank. make fetch-model downloads
-# them and checks each against its SHA-256 in models/model.json.
-release:
+# Version 4's single test evaluation also scores version 3 on the same photos (same run),
+# from its release files, checked against its archived record.
+compare:
+  name: v3
+  model_json: reports/history/v3/model.json
   base_url: https://github.com/vladzpop11/waste-sorting-classifier/releases/download/model-v3/
+  dir: artifacts/model-v3
+
+# The served files, published as GitHub release assets: the evaluated ONNX model (logits
+# and features) and the familiarity file. make fetch-model downloads them and checks each
+# against its SHA-256 in models/model.json.
+release:
+  base_url: https://github.com/vladzpop11/waste-sorting-classifier/releases/download/model-v4/
 
 # Model selection, fixed before training (version 2: 2026-10-20; version 4: 2026-10-20,
 # before its Kaggle run). Every architecture is trained once per seed on Kaggle. The

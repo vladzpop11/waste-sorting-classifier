@@ -1,5 +1,7 @@
 # Data: duplicates, repeated objects and the split
 
+Sections 1 to 4 describe TrashNet, whose split has not changed since version 2. Section 5 adds RealWaste (version 4).
+
 Generated numbers come from `make split` ([split_stats.json](split_stats.json)) and `python -m waste_sorting_classifier.data_report` ([data_stats.json](data_stats.json), [figures/similarity_pairs.png](figures/similarity_pairs.png)).
 
 ## 1. The same photo under two labels
@@ -55,3 +57,36 @@ The test score could therefore still be slightly optimistic for objects photogra
 ## 4. Version 1 of the split
 
 The first split used average-linkage clusters only. A review found 44 test photos with a same-class training photo at ≥ 0.86 (11 at ≥ 0.88), some visibly the same object. That model scored 100% on those 44 photos and 95.0% on the other 317. The split was rebuilt as described above and the models retrained. The version 1 split, results and model record are in [history/v1](history/v1).
+
+## 5. Version 4: RealWaste
+
+**The dataset.** [RealWaste](https://archive.ics.uci.edu/dataset/908/realwaste) (Single, Iranmanesh & Raad, 2023): 4,752 photos of waste received at the Whyte's Gully landfill in Wollongong, Australia, each item photographed from above on a concrete floor, 524 × 524 pixels. `make data` checks the archive's SHA-256 and the published counts per class. All files are distinct (no byte-identical duplicates) and none carries an EXIF orientation.
+
+**Licence.** UCI lists CC BY 4.0, but the authors' own README says CC BY-NC-SA 4.0. The project follows the stricter one: non-commercial use, attribution, and the same licence for adaptations, which is why the version 4 model weights are CC BY-NC-SA 4.0.
+
+**Classes.** RealWaste's cardboard, glass, metal, paper and plastic map to ours. Its miscellaneous trash (495) and textile trash (318) become trash. Its food organics (411) and vegetation (436) have no counterpart and are not used. That leaves 3,905 photos, and trash grows from 137 photos (TrashNet) to 950.
+
+**Repeated objects.** Like TrashNet, RealWaste photographs many objects more than once. The same threshold, 0.86, is used, based on RealWaste's own pairs ([figures/similarity_pairs_realwaste.png](figures/similarity_pairs_realwaste.png), counts in [data_stats.json](data_stats.json)):
+
+| Cosine similarity | Same-class pairs | What the pairs are |
+| --- | --- | --- |
+| ≥ 0.95 | 18 | The same object, barely moved |
+| 0.90–0.95 | 662 | The same object, re-posed |
+| 0.88–0.90 | 1,242 | Almost always the same object |
+| 0.86–0.88 | 2,688 | Often the same object, plus look-alikes such as crumpled foil |
+| 0.84–0.86 | 5,182 | Mostly different objects of the same kind (different cans, different foil) |
+| 0.80–0.84 | 24,516 | Different objects |
+
+**Placing RealWaste photos without disturbing TrashNet.** TrashNet keeps its version 2 split exactly ([splits/trashnet-v2.csv](../splits/trashnet-v2.csv)). RealWaste photos are grouped among themselves, then:
+- **Near-duplicates across sources:** 13 RealWaste photos have a TrashNet photo at ≥ 0.86 in the same class, most likely the same product (for example the same can). Their groups follow that TrashNet photo's split. One group was tied both to a TrashNet training photo and to a TrashNet validation photo, through different members; its member tied to validation (`realwaste/metal/Metal_582.jpg`) is left out and the group goes to training.
+- **Look-alike chains go to training.** On RealWaste's concrete backgrounds, joining every pair at ≥ 0.86 chains look-alikes into large groups: the largest has 263 photos, and 10 groups have more than 20 (1,102 photos in all). On a first attempt StratifiedGroupKFold put a 130-photo glass chain into the test fold, where it was the entire glass test set, and a 56-photo metal chain into validation. The rule, fixed before any training or evaluation and based on the split's structure only: groups of more than 20 photos go to training. Validation and test then consist of many independent objects.
+- **The rest** is split with StratifiedGroupKFold (7 folds, as for TrashNet): 3,109 training, 398 validation and 397 test photos, with each class at 8–14% of its photos in each of validation and test.
+
+**The guarantee, over both sources.** No validation or test photo has a same-class training photo, from either source, at ≥ 0.86. The highest is 0.8599 for validation and 0.8596 for test ([split_stats.json](split_stats.json)). Just below the threshold:
+
+| Nearest same-class training photo | TrashNet val (360) | TrashNet test (366) | RealWaste val (398) | RealWaste test (397) |
+| --- | --- | --- | --- | --- |
+| ≥ 0.85 | 32 | 47 | 74 | 60 |
+| ≥ 0.84 | 76 | 102 | 144 | 128 |
+| ≥ 0.80 | 245 | 272 | 334 | 335 |
+

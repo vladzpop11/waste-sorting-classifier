@@ -1,0 +1,74 @@
+{
+  "arch": "efficientnet_b0",
+  "classes": [
+    "cardboard",
+    "glass",
+    "metal",
+    "paper",
+    "plastic",
+    "trash"
+  ],
+  "input": {
+    "name": "image",
+    "shape": [
+      "batch",
+      3,
+      224,
+      224
+    ],
+    "dtype": "float32"
+  },
+  "preprocessing": {
+    "resize_shorter_side": 256,
+    "center_crop": 224,
+    "mean": [
+      0.48500001430511475,
+      0.4560000002384186,
+      0.4059999883174896
+    ],
+    "std": [
+      0.2290000021457672,
+      0.2240000069141388,
+      0.22499999403953552
+    ],
+    "exif_transpose": true
+  },
+  "output": {
+    "name": "logits",
+    "apply": "softmax"
+  },
+  "features": {
+    "name": "features",
+    "size": 1280
+  },
+  "opset": 17,
+  "exported_with": {
+    "torch": "2.2.2",
+    "onnx": "1.23.2"
+  },
+  "checkpoint_sha256": "bfa1f3d381ea03976c632df3189da1c1cbbb2f5f253b8c434bc74a37a55e39b4",
+  "onnx_sha256": "155e0de2a39181f0a454bc2833217c70c81a84f5d308e89e9cbafc3724c3f11d",
+  "equivalence_check": {
+    "images": 20,
+    "max_abs_logit_diff": 1.3709068298339844e-06,
+    "same_predictions": true,
+    "tolerance": 0.0001
+  },
+  "evaluated_onnx_sha256": "e6eccc9d36936c9e6646a5d716507d0a51db62f049070f18719053de5b8bcf10",
+  "matches_evaluated": {
+    "images": 2155,
+    "max_abs_logit_diff": 0.0,
+    "same_predictions": true
+  },
+  "familiarity": {
+    "file": "familiarity.bin",
+    "sha256": "194c1bbac83f79cd4dc041b04bcf0e1357ec8226816c4f275f7eff4f1f70a630",
+    "shape": [
+      1795,
+      1280
+    ],
+    "scale": 127,
+    "threshold": 0.5347744980626861,
+    "rule": "lets 95% of validation photos through"
+  }
+}

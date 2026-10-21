@@ -7,9 +7,9 @@
   models/model.json, and its low-confidence threshold from reports/val_errors.json
   (`make errors`). The page trusts these constants (part of its own code), not a JSON file
   sitting next to the model.
-- web/examples/: per class, the first validation photo (in path order) that the model gets
-  right and the familiarity check accepts, copied byte for byte. Never a training or test
-  photo.
+- web/examples/: per class and source (TrashNet <class>.jpg, RealWaste <class>-real.jpg),
+  the first validation photo (in path order) that the model gets right and the familiarity
+  check accepts, copied byte for byte. Never a training or test photo.
 """
 
 import json
@@ -24,11 +24,16 @@ def copy_examples(classes: list[str], wrong: set[str]) -> None:
     cfg = load_config()
     images_dir = project_path(cfg["data"]["raw_dir"]) / "images"
     val = load_split(cfg, verify=False).query("split == 'val'").sort_values("path")
-    for label in classes:
-        path = next(p for p in val.loc[val["label"] == label, "path"] if p not in wrong)
-        dest = project_path("web/examples") / f"{label}.jpg"
-        dest.write_bytes((images_dir / path).read_bytes())
-        print(f"example {label}: {path}")
+    folder = project_path("web/examples")
+    for old in folder.glob("*.jpg"):
+        old.unlink()
+    # One studio photo (TrashNet) and one real-waste photo (RealWaste) per class.
+    for source, suffix in [("trashnet", ""), ("realwaste", "-real")]:
+        rows = val[val["source"] == source]
+        for label in classes:
+            path = next(p for p in rows.loc[rows["label"] == label, "path"] if p not in wrong)
+            (folder / f"{label}{suffix}.jpg").write_bytes((images_dir / path).read_bytes())
+            print(f"example {label}{suffix}: {path}")
 
 
 def main() -> None:
@@ -49,9 +54,8 @@ def main() -> None:
     meta = json.loads(project_path("models/model.json").read_text())
     info = {"arch": meta["arch"], "classes": meta["classes"], "sha256": meta["onnx_sha256"]}
     fam = meta["familiarity"]
-    info["familiarity"] = {"file": fam["file"], "sha256": fam["sha256"], "rows": fam["shape"][0],
-                           "dims": fam["shape"][1], "scale": fam["scale"],
-                           "threshold": fam["threshold"]}  # fmt: skip
+    info["familiarity"] = {k: fam[k] for k in ["method", "file", "sha256", "classes", "dims",
+                                               "threshold"]}  # fmt: skip
     errors = project_path("reports/val_errors.json")
     if errors.exists():
         analysis = json.loads(errors.read_text())

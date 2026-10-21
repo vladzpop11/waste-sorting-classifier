@@ -93,7 +93,8 @@
   details .confidence { margin: 0 0 8px; font-size: .9rem; }
   .placeholder { color: var(--muted); }
   .error { color: var(--error); }
-  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .examples-label { margin: 12px 0 0; font-size: .85rem; color: var(--muted); }
   .examples button {
     padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
     background: none; cursor: pointer; width: 92px;
@@ -129,14 +130,17 @@
   </div>
 
   <h2>Or try an example</h2>
+  <p class="examples-label">Studio photos (TrashNet)</p>
   <div class="examples" id="examples"></div>
+  <p class="examples-label">Real waste on a floor (RealWaste)</p>
+  <div class="examples" id="examples-real"></div>
 
   <p class="status" id="status" role="status" aria-live="polite">Loading the model (16 MB)…</p>
 
   <footer>
-    <p>EfficientNet-B0 fine-tuned on TrashNet and exported to ONNX; it runs here with ONNX Runtime Web. On 366 test photos with no near-duplicate in training: 94.3% accuracy (95% CI 90.3–96.9%). The weakest class is trash. Accuracy is lower on photos unlike the training photos of their class.</p>
-    <p>Trained on photos of one object on a plain background: busy scenes, people, landscapes and several objects at once are outside what it has learned. The page checks how similar each photo is to the training photos and says so when it is not a photo the model knows; on everyday photos it caught 92% of them. The examples are the first validation photo per class that the model gets right, so they show what it handles, not how often it fails.</p>
-    <p><a href="https://github.com/vladzpop11/waste-sorting-classifier">Code, data handling and evaluation on GitHub</a></p>
+    <p>EfficientNet-B0 fine-tuned on studio photos (TrashNet) and real waste photographed at a landfill (RealWaste), exported to ONNX; it runs here with ONNX Runtime Web. On test photos with no near-duplicate in training: 88.7% accuracy on real waste and 94.8% on studio photos. The weakest class is real-waste metal (crushed cans and foil).</p>
+    <p>It knows photos of one item, taken from above, on a plain background or an ordinary floor. Hands, bins full of things, people, landscapes and busy scenes are outside what it has learned: the page checks how familiar each photo looks to the model and says so when it is not a photo the model knows (it flagged 84% of everyday photos in testing). The examples are the first validation photo per class and source that the model gets right, so they show what it handles, not how often it fails.</p>
+    <p>Model trained on <a href="https://github.com/garythung/trashnet">TrashNet</a> (MIT) and <a href="https://archive.ics.uci.edu/dataset/908/realwaste">RealWaste</a> (CC BY-NC-SA 4.0); the model is CC BY-NC-SA 4.0. <a href="https://github.com/vladzpop11/waste-sorting-classifier">Code, data handling and evaluation on GitHub</a>.</p>
   </footer>
 </main>
 <script src="vendor/libjpegturbowasm_decode.js"></script>

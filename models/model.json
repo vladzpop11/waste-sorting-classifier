@@ -46,29 +46,24 @@
     "torch": "2.2.2",
     "onnx": "1.23.2"
   },
-  "checkpoint_sha256": "bfa1f3d381ea03976c632df3189da1c1cbbb2f5f253b8c434bc74a37a55e39b4",
-  "onnx_sha256": "155e0de2a39181f0a454bc2833217c70c81a84f5d308e89e9cbafc3724c3f11d",
+  "checkpoint_sha256": "dac7cf9442e3f49a39e7c58bb9281cf4d7079eca769a84bb1e0cd6cfe3fa289f",
+  "onnx_sha256": "536ae512fd303bc4710c4e52e66edca463f832f2d3068e64f34271f3e30bebf7",
   "equivalence_check": {
     "images": 20,
-    "max_abs_logit_diff": 1.3709068298339844e-06,
+    "max_abs_logit_diff": 1.9073486328125e-06,
     "same_predictions": true,
     "tolerance": 0.0001
   },
-  "evaluated_onnx_sha256": "e6eccc9d36936c9e6646a5d716507d0a51db62f049070f18719053de5b8bcf10",
-  "matches_evaluated": {
-    "images": 2155,
-    "max_abs_logit_diff": 0.0,
-    "same_predictions": true
-  },
+  "evaluated_onnx_sha256": null,
+  "matches_evaluated": null,
   "familiarity": {
+    "method": "mahalanobis",
     "file": "familiarity.bin",
-    "sha256": "194c1bbac83f79cd4dc041b04bcf0e1357ec8226816c4f275f7eff4f1f70a630",
-    "shape": [
-      1795,
-      1280
-    ],
-    "scale": 127,
-    "threshold": 0.5347744980626861,
+    "sha256": "b15bff10ab30640f6ad5d30d9bba534c3b2db80ba6971a947acc356346c571cf",
+    "classes": 6,
+    "dims": 1280,
+    "regularisation": 0.001,
+    "threshold": -5855.972243745473,
     "rule": "lets 95% of validation photos through"
   }
 }

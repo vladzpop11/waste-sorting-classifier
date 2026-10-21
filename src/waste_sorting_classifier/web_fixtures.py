@@ -43,7 +43,7 @@ def python_result(
     logits, features = model.run(x[np.newaxis])
     result = {"logits": logits[0].tolist()}
     if familiarity is not None:
-        result["similarity"] = float(familiarity.score(features)[0])
+        result["score"] = float(familiarity.score(logits, features)[0])
     return result
 
 
@@ -61,11 +61,11 @@ def main() -> None:
         x = pp.preprocess(image)
         logits, features = model.run(x[np.newaxis])
         logits = logits[0]
-        similarity = float(familiarity.score(features)[0])
+        score = float(familiarity.score(logits[np.newaxis], features)[0])
         (out / f"{i}.rgb").write_bytes(np.asarray(image, dtype=np.uint8).tobytes())
         (out / f"{i}.f32").write_bytes(x.astype("<f4").tobytes())
         index.append({"file": i, "path": path, "width": image.width, "height": image.height,
-                      "similarity": similarity,
+                      "score": score,
                       "logits": logits.tolist()})  # fmt: skip
     record = {"classes": model.classes, "threshold": familiarity.threshold, "images": index}
     (out / "index.json").write_text(json.dumps(record))

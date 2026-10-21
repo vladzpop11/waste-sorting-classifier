@@ -1,16 +1,21 @@
-// The familiarity check (src/waste_sorting_classifier/familiarity.py): cosine similarity
-// of a photo's features to the nearest training photo. The bank holds every training
-// photo's features as a unit vector rounded to 8 bits (value * 127). Computed in float64
-// in the same way as the Python version.
-export function similarity(bank, rows, dims, scale, features) {
-  let norm = 0;
-  for (let j = 0; j < dims; j++) norm += features[j] * features[j];
-  norm = Math.sqrt(norm);
-  let best = -Infinity;
-  for (let i = 0, o = 0; i < rows; i++, o += dims) {
-    let dot = 0;
-    for (let j = 0; j < dims; j++) dot += bank[o + j] * features[j];
-    if (dot > best) best = dot;
+// The familiarity check (src/waste_sorting_classifier/familiarity.py), version 4: minus the
+// smallest squared Mahalanobis distance from the photo's features to a training class mean,
+// with the training features' shared inverse covariance. The file holds the class means,
+// then the inverse covariance, as float32. Computed in float64 like the Python version.
+export function mahalanobis(values, classes, dims, features) {
+  const precisionAt = classes * dims;
+  const d = new Float64Array(dims);
+  let best = Infinity;
+  for (let k = 0; k < classes; k++) {
+    for (let j = 0; j < dims; j++) d[j] = features[j] - values[k * dims + j];
+    let total = 0;
+    for (let i = 0; i < dims; i++) {
+      const row = precisionAt + i * dims;
+      let dot = 0;
+      for (let j = 0; j < dims; j++) dot += values[row + j] * d[j];
+      total += d[i] * dot;
+    }
+    if (total < best) best = total;
   }
-  return best / norm / scale;
+  return -best;
 }
