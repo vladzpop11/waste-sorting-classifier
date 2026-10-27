@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 # (which needs NumPy 1.x) and ONNX Runtime at 1.23.2; everywhere else gets current versions.
 dependencies = [
     "fastapi>=0.144.0",
-    "numpy<2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "numpy<3 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "numpy>=2 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     "onnxruntime==1.23.2 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "onnxruntime>=1.23 ; sys_platform != 'darwin' or platform_machine != 'x86_64'",
